@@ -87,11 +87,11 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  v2.2.9
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  v2.3.0
                 </span>
               </div>
-              <p className="text-xs text-slate-400">구문 오류 수정 및 스크립트 정상 로딩 완전 복구 버전</p>
+              <p className="text-xs text-slate-400">중복 입력창 박스 완전 소거 및 디버그 버튼 제거 정식 정식 버전</p>
             </div>
           </div>
           <button
@@ -108,21 +108,21 @@ TypeError: Cannot read properties of null (reading 'appendChild')
       {/* 메인 컨텐츠 영역 */}
       <main className="max-w-4xl mx-auto px-4 py-6 w-full flex-1 flex flex-col gap-6">
         {/* 상태 알림 카드 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-indigo-950/60 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-emerald-950/30">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-purple-950/60 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-indigo-950/30">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mt-0.5">
+            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 mt-0.5">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                유저스크립트 구문 오류 정밀 해결 & 로딩 완전 복구 (v2.2.9)
+                크랙 순정 중복 입력창 완벽 소거 & 디버그 플로팅 버튼 제거 (v2.3.0)
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                이전 수정 시 잔여 HTML 닫기 태그로 인해 발생했던 자바스크립트 구문 오류(SyntaxError)를 긴급 정밀 제거하여, 탐퍼몽키 등 확장 프로그램에서 스크립트가 100% 정상 로딩되도록 복구했습니다. 크랙의 AI 모델 선택창과 순정 전송버튼도 원활히 가동됩니다.
+                크랙의 순정 폼 테두리/배경을 투명화하여 파스텔 단일 입력창만 화면에 나타나도록 개선하고, 디버깅용 플로팅 버튼을 완전 제거했습니다. 하단 우측에는 크랙 순정 AI 모델 선택창과 순정 전송버튼만 깔끔하게 정열됩니다.
               </p>
             </div>
           </div>

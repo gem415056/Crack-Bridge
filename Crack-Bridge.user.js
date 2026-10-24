@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.9
-// @description  [v2.2.9] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
+// @version      2.3.0
+// @description  [v2.3.0] PASTELchat Native Input Overlay Engine for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -66,209 +66,11 @@
     /* ==========================================================================
      * [v2.2.7-debug 모바일 진단 로거 & 크랙 하단 버튼 정밀 스캐너]
      * ========================================================================== */
-    const runtimeErrors = [];
-    function addErrorLog(type, msg, stack) {
-        runtimeErrors.push({
-            time: new Date().toLocaleTimeString('ko-KR'),
-            type: String(type || ''),
-            message: String(msg || ''),
-            stack: String(stack || '')
-        });
-        updateDiagnosticFloatingButton();
-    }
-
-    try {
-        window.onerror = function(msg, url, line, col, error) {
-            addErrorLog('window.onerror', `${msg} (${url}:${line}:${col})`, error?.stack || '');
-        };
-
-        window.addEventListener('unhandledrejection', function(e) {
-            addErrorLog('unhandledrejection', e.reason?.message || String(e.reason), e.reason?.stack || '');
-        });
-
-        const origConsoleError = console.error;
-        console.error = function(...args) {
-            origConsoleError.apply(console, args);
-            try {
-                const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-                addErrorLog('console.error', msg, new Error().stack || '');
-            } catch (_) {}
-        };
-    } catch (_) {}
-
     function updateDiagnosticFloatingButton() {
-        let btn = document.getElementById('pastel-diag-floating-btn');
-        if (!btn) {
-            btn = document.createElement('button');
-            btn.id = 'pastel-diag-floating-btn';
-            btn.type = 'button';
-            btn.style.cssText = `
-                position: fixed !important;
-                bottom: 80px !important;
-                right: 16px !important;
-                z-index: 2147483647 !important;
-                padding: 10px 14px !important;
-                border-radius: 9999px !important;
-                background: linear-gradient(135deg, #1e1b4b, #311b92) !important;
-                border: 2px solid #818cf8 !important;
-                color: #ffffff !important;
-                font-weight: bold !important;
-                font-size: 12px !important;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
-                cursor: pointer !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: 6px !important;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-            `;
-            btn.onclick = openDiagnosticModal;
-            getPastelHostRoot().appendChild(btn);
-        }
-
-        const errCount = runtimeErrors.length;
-        if (errCount > 0) {
-            btn.style.background = 'linear-gradient(135deg, #881337, #e11d48) !important';
-            btn.style.borderColor = '#f43f5e !important';
-            btn.innerHTML = `🚨 PASTEL 진단 (에러 ${errCount}건) [v2.2.9]`;
-        } else {
-            btn.style.background = 'linear-gradient(135deg, #1e1b4b, #311b92) !important';
-            btn.style.borderColor = '#818cf8 !important';
-            btn.innerHTML = `🐞 PASTEL 진단 [v2.2.9]`;
-        }
-    }
-
-    function generateFullDiagnosticReport() {
-        const now = new Date().toLocaleString('ko-KR');
-        const url = location.href;
-        const ua = navigator.userAgent;
-
-        const report = [];
-        report.push(`# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서`);
-        report.push(`- 생성 시각: ${now}`);
-        report.push(`- 버전: 2.2.9`);
-        report.push(`- 접속 URL: ${url}`);
-        report.push(`- 모바일 기기/브라우저: ${ua}`);
-        report.push(``);
-
-        report.push(`## 1. 사이트 DOM & 하단 툴바 버튼 전수 스캔`);
-        const nativeContainer = document.querySelector('.bg-bg_screen') || document.body;
-        const allButtons = Array.from(nativeContainer.querySelectorAll('button'));
-        
-        report.push(`- 감지된 전체 하단 버튼 수: ${allButtons.length}개`);
-        report.push(``);
-
-        allButtons.forEach((btn, idx) => {
-            const isPastel = btn.closest('.chat-footer-control') || btn.id.startsWith('ep-');
-            const origin = isPastel ? ' [파스텔 UI 버튼]' : ' [크랙 순정 버튼]';
-            const txt = (btn.textContent || '').trim().replace(/\s+/g, ' ');
-            const aria = btn.getAttribute('aria-label') || btn.getAttribute('title') || '';
-            const id = btn.id || '(없음)';
-            const cls = btn.className ? String(btn.className).replace(/\s+/g, ' ') : '(없음)';
-            
-            const svgs = btn.querySelectorAll('svg');
-            const paths = [];
-            svgs.forEach(s => {
-                s.querySelectorAll('path').forEach(p => {
-                    const d = p.getAttribute('d') || '';
-                    if (d) paths.push(d);
-                });
-            });
-
-            report.push(`### 버튼 #${idx + 1}${origin}`);
-            report.push(`- ID: \`${id}\``);
-            report.push(`- 클래스: \`${cls}\``);
-            report.push(`- 텍스트/라벨: \`${txt || aria || '빈 텍스트'}\``);
-            report.push(`- SVG Path (${paths.length}개):`);
-            if (paths.length > 0) {
-                paths.forEach(p => report.push(`  - \`${p.substring(0, 70)}${p.length > 70 ? '...' : ''}\``));
-            } else {
-                report.push(`  - (SVG 없음)`);
-            }
-            report.push(`- 부모 태그: \`<${btn.parentElement?.tagName.toLowerCase() || 'div'} class="${btn.parentElement?.className || ''}">\``);
-            report.push(``);
-        });
-
-        report.push(`## 2. 인증 & 세션 상태`);
-        report.push(`- capturedToken: ${capturedCrackToken ? 'O' : 'X'}`);
-        report.push(`- capturedChatId: ${capturedCrackChatId || 'X'}`);
-        report.push(`- cookieAccessToken: ${document.cookie.includes('access_token=') ? 'O' : 'X'}`);
-        report.push(``);
-
-        report.push(`## 3. 감지된 에러 및 예외 (${runtimeErrors.length}건)`);
-        if (runtimeErrors.length === 0) {
-            report.push(`- 특이 감지된 오류 없음`);
-        } else {
-            runtimeErrors.forEach((err, i) => {
-                report.push(`### 에러 #${i + 1} [${err.type}] (${err.time})`);
-                report.push(`- 메시지: ${err.message}`);
-                if (err.stack) {
-                    report.push(`\`\`\``);
-                    report.push(err.stack.substring(0, 800));
-                    report.push(`\`\`\``);
-                }
-                report.push(``);
-            });
-        }
-
-        report.push(`=== 보고서 끝 ===`);
-        return report.join('\n');
-    }
-
-    function openDiagnosticModal() {
-        let modal = document.getElementById('pastel-diag-modal-overlay');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'pastel-diag-modal-overlay';
-            modal.style.cssText = `
-                position: fixed !important;
-                inset: 0 !important;
-                background: rgba(0,0,0,0.85) !important;
-                z-index: 2147483647 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: flex-end !important;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-            `;
-            modal.innerHTML = `
-                <div style="background: #0f172a; border-top: 2px solid #38bdf8; border-radius: 16px 16px 0 0; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;">
-                    <div style="padding: 14px 16px; background: #1e293b; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155;">
-                        <span style="font-weight: bold; color: #38bdf8; font-size: 14px;">🐞 PASTELchat × CRACK 모바일 진단 콘솔 (v2.2.7-debug)</span>
-                        <button id="pastel-diag-close-btn" style="background: transparent; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 4px;">✕</button>
-                    </div>
-                    <div style="padding: 12px 16px; background: #020617; border-bottom: 1px solid #1e293b; display: flex; gap: 10px;">
-                        <button id="pastel-diag-copy-btn" style="flex: 1; padding: 10px; border-radius: 8px; background: linear-gradient(135deg, #2563eb, #7c3aed); border: none; color: white; font-weight: bold; font-size: 13px; cursor: pointer;">
-                            📋 진단 보고서 전체 복사
-                        </button>
-                    </div>
-                    <div style="padding: 16px; overflow-y: auto; flex: 1; color: #cbd5e1; font-size: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; line-height: 1.5;" id="pastel-diag-report-body">
-                    </div>
-                </div>
-            `;
-            getPastelHostRoot().appendChild(modal);
-
-            document.getElementById('pastel-diag-close-btn').onclick = () => {
-                modal.style.display = 'none';
-            };
-
-            document.getElementById('pastel-diag-copy-btn').onclick = () => {
-                const reportText = generateFullDiagnosticReport();
-                navigator.clipboard.writeText(reportText).then(() => {
-                    const btn = document.getElementById('pastel-diag-copy-btn');
-                    if (btn) {
-                        btn.textContent = '✅ 복사되었습니다!';
-                        setTimeout(() => { btn.textContent = '📋 진단 보고서 전체 복사'; }, 2500);
-                    }
-                }).catch(() => {
-                    alert('복사에 실패했습니다.');
-                });
-            };
-        }
-
-        const reportBody = document.getElementById('pastel-diag-report-body');
-        if (reportBody) {
-            reportBody.textContent = generateFullDiagnosticReport();
-        }
-        modal.style.display = 'flex';
+        const btn = document.getElementById('pastel-diag-floating-btn');
+        if (btn) btn.remove();
+        const modal = document.getElementById('pastel-diag-modal-overlay');
+        if (modal) modal.remove();
     }
 
     // [크랙 네트워크 실시간 인터셉터]: 브라우저가 통신할 때 사용하는 진짜 토큰과 ChatId 자동 낚아채기
@@ -784,25 +586,32 @@
             font-weight: bold !important;
         }
 
-        /* 크랙 하단 입력바 내부의 순정 폼 100% 보존 & 상단 잔여 래퍼만 소거 */
-        .bg-bg_screen.pointer-events-auto p.text-xs,
-        .bg-bg_screen.pointer-events-auto .text-text_tertiary {
-            display: none !important;
-            height: 0 !important;
-            margin: 0 !important;
+        /* 크랙 순정 폼 및 직계 자식 래퍼의 배경, 테두리, 패딩, 그림자 전수 소거 (중복 입력창 박스 완전 소거) */
+        .bg-bg_screen.pointer-events-auto form,
+        .bg-bg_screen.pointer-events-auto form > div,
+        .bg-bg_screen.pointer-events-auto form .relative.flex.w-full.flex-col {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
             padding: 0 !important;
+            margin: 0 !important;
+            min-height: 0 !important;
         }
 
-        /* 크랙 순정 ProseMirror 에디터 영역 은닉 (파스텔 전용 textarea가 완벽 대체) */
+        /* 크랙 순정 ProseMirror 에디터 영역 및 텍스트 래퍼 완전 은닉 */
         .bg-bg_screen.pointer-events-auto form .ProseMirror,
-        .bg-bg_screen.pointer-events-auto form [contenteditable="true"] {
+        .bg-bg_screen.pointer-events-auto form [contenteditable="true"],
+        .bg-bg_screen.pointer-events-auto form .ProseMirror-focused,
+        .bg-bg_screen.pointer-events-auto p.text-xs,
+        .bg-bg_screen.pointer-events-auto .text-text_tertiary {
             position: absolute !important;
             opacity: 0 !important;
             pointer-events: none !important;
             height: 1px !important;
             width: 1px !important;
             overflow: hidden !important;
-            z-index: -999 !important;
+            clip: rect(0, 0, 0, 0) !important;
+            z-index: -9999 !important;
         }
 
         /* 크랙 순정 좌측 미사용 버튼 세트 (/, 추천답변 등) 은닉 */
