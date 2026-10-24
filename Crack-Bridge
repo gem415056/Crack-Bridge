@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.0
-// @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
+// @version      2.2.1-debug
+// @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai [with Mobile Diagnostic Logger]
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -24,15 +24,133 @@
 (function() {
     'use strict';
 
+    /* ==========================================================================
+     * [PASTELchat 모바일 즉각 진단 & 에러 인터셉터 코어]
+     * ========================================================================== */
+    const _DIAG_START_TIME = Date.now();
+    window.__PASTEL_DIAGNOSTICS__ = window.__PASTEL_DIAGNOSTICS__ || {
+        version: '2.2.1-debug',
+        startTime: _DIAG_START_TIME,
+        errors: [],
+        consoleLogs: [],
+        fetchCalls: [],
+        domStatus: {},
+        addError: function(err, source) {
+            try {
+                const item = {
+                    time: new Date().toLocaleTimeString(),
+                    timestamp: Date.now(),
+                    source: source || 'runtime',
+                    message: (err && (err.message || err.reason || String(err))) || 'Unknown Error',
+                    stack: (err && err.stack) || (new Error().stack) || '',
+                    filename: (err && err.filename) || '',
+                    lineno: (err && err.lineno) || '',
+                    colno: (err && err.colno) || ''
+                };
+                this.errors.push(item);
+                if (this.errors.length > 50) this.errors.shift();
+                try {
+                    sessionStorage.setItem('pastel_diag_last_errors', JSON.stringify(this.errors.slice(-20)));
+                } catch (_) {}
+                if (window.__PASTEL_UPDATE_DIAG_UI__) {
+                    window.__PASTEL_UPDATE_DIAG_UI__();
+                }
+            } catch (_) {}
+        },
+        addLog: function(level, args) {
+            try {
+                const str = Array.from(args).map(a => {
+                    if (typeof a === 'object') {
+                        try { return JSON.stringify(a); } catch (_) { return String(a); }
+                    }
+                    return String(a);
+                }).join(' ');
+                this.consoleLogs.push({
+                    time: new Date().toLocaleTimeString(),
+                    level: level,
+                    text: str
+                });
+                if (this.consoleLogs.length > 100) this.consoleLogs.shift();
+                if (window.__PASTEL_UPDATE_DIAG_UI__) {
+                    window.__PASTEL_UPDATE_DIAG_UI__();
+                }
+            } catch (_) {}
+        },
+        addFetch: function(url, opts, status, error) {
+            try {
+                this.fetchCalls.push({
+                    time: new Date().toLocaleTimeString(),
+                    url: String(url),
+                    method: (opts && opts.method) || 'GET',
+                    status: status || (error ? 'FAILED' : 'PENDING'),
+                    error: error ? String(error) : null
+                });
+                if (this.fetchCalls.length > 30) this.fetchCalls.shift();
+                if (window.__PASTEL_UPDATE_DIAG_UI__) {
+                    window.__PASTEL_UPDATE_DIAG_UI__();
+                }
+            } catch (_) {}
+        }
+    };
+
+    // 1. window 및 unsafeWindow 전역 에러 즉각 감지 리스너 장착
+    const attachGlobalErrorListeners = (targetWin) => {
+        if (!targetWin || targetWin.__pastel_error_hooked__) return;
+        try {
+            targetWin.__pastel_error_hooked__ = true;
+            targetWin.addEventListener('error', function(event) {
+                const err = event.error || { message: event.message, filename: event.filename, lineno: event.lineno, colno: event.colno };
+                window.__PASTEL_DIAGNOSTICS__.addError(err, 'window.onerror');
+            }, true);
+
+            targetWin.addEventListener('unhandledrejection', function(event) {
+                const reason = event.reason || 'Unhandled Promise Rejection';
+                const err = (typeof reason === 'object') ? reason : { message: String(reason) };
+                window.__PASTEL_DIAGNOSTICS__.addError(err, 'unhandledrejection');
+            }, true);
+        } catch (_) {}
+    };
+
+    attachGlobalErrorListeners(window);
+    if (typeof unsafeWindow !== 'undefined' && unsafeWindow !== window) {
+        attachGlobalErrorListeners(unsafeWindow);
+    }
+
+    // 2. 콘솔 인터셉트 (console.error, console.warn, console.info, console.log)
+    const origConsole = {
+        log: console.log.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console),
+        info: console.info.bind(console)
+    };
+
+    console.error = function(...args) {
+        window.__PASTEL_DIAGNOSTICS__.addLog('error', args);
+        window.__PASTEL_DIAGNOSTICS__.addError({ message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, 'console.error');
+        return origConsole.error.apply(console, args);
+    };
+    console.warn = function(...args) {
+        window.__PASTEL_DIAGNOSTICS__.addLog('warn', args);
+        return origConsole.warn.apply(console, args);
+    };
+    console.info = function(...args) {
+        window.__PASTEL_DIAGNOSTICS__.addLog('info', args);
+        return origConsole.info.apply(console, args);
+    };
+    console.log = function(...args) {
+        window.__PASTEL_DIAGNOSTICS__.addLog('log', args);
+        return origConsole.log.apply(console, args);
+    };
+
     // [크랙 네트워크 실시간 인터셉터]: 브라우저가 통신할 때 사용하는 진짜 토큰과 ChatId 자동 낚아채기
     let capturedCrackToken = '';
     let capturedCrackChatId = '';
 
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+        const opts = args[1] || {};
         try {
-            const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-            const opts = args[1] || {};
             const headers = opts.headers || (typeof args[0] === 'object' ? args[0].headers : null);
 
             // 1. Authorization 토큰 자동 캡처
@@ -53,7 +171,22 @@
                 localStorage.setItem('pastel_captured_crack_chat_id', capturedCrackChatId);
             }
         } catch (_) {}
-        return origFetch.apply(this, args);
+
+        try {
+            const resPromise = origFetch.apply(window, args);
+            resPromise.then(res => {
+                if (url.includes('wrtn.ai') || url.includes('recaptcha') || url.includes('firebase') || url.includes('googleapis')) {
+                    window.__PASTEL_DIAGNOSTICS__.addFetch(url, opts, res.status);
+                }
+            }).catch(err => {
+                window.__PASTEL_DIAGNOSTICS__.addFetch(url, opts, 'ERROR', err);
+            });
+            return resPromise;
+        } catch (fetchErr) {
+            window.__PASTEL_DIAGNOSTICS__.addError(fetchErr, 'window.fetch');
+            window.__PASTEL_DIAGNOSTICS__.addFetch(url, opts, 'THROW', fetchErr);
+            throw fetchErr;
+        }
     };
 
     // [index.html 동기화 브릿지]: 데이터가 실제로 변경되었을 때만 안전하게 동기화 (과부하 방지)
@@ -5761,27 +5894,689 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
     }
 
     function checkAndInject() {
-        injectBaseDOM();
-        stripLoreOnlyFromView();
-        monitorSendButtonState();
+        try {
+            injectBaseDOM();
+            stripLoreOnlyFromView();
+            monitorSendButtonState();
 
-        // 대화방 진입 또는 변경 감지 시 백엔드 API에서 실제 유저 턴 수 수급 및 해당 방의 누적 비용/크래커 UI 갱신
-        const currentChatId = getChatId();
-        if (currentChatId && currentChatId !== 'global' && currentChatId !== lastCheckedChatId) {
-            lastCheckedChatId = currentChatId;
-            getCrackUserTurnsRealtime(currentChatId);
-            updateCrackLoreCostUI(currentChatId);
-            fetchCrackCash();
+            // 대화방 진입 또는 변경 감지 시 백엔드 API에서 실제 유저 턴 수 수급 및 해당 방의 누적 비용/크래커 UI 갱신
+            const currentChatId = getChatId();
+            if (currentChatId && currentChatId !== 'global' && currentChatId !== lastCheckedChatId) {
+                lastCheckedChatId = currentChatId;
+                getCrackUserTurnsRealtime(currentChatId);
+                updateCrackLoreCostUI(currentChatId);
+                fetchCrackCash();
+            }
+        } catch (err) {
+            if (window.__PASTEL_DIAGNOSTICS__) {
+                window.__PASTEL_DIAGNOSTICS__.addError(err, 'checkAndInject');
+            }
         }
     }
 
+    /* ==========================================================================
+     * [PASTELchat 모바일 진단 콘솔 & 플로팅 버튼 엔드포인트]
+     * ========================================================================== */
+    function runPastelHealthCheck() {
+        const diag = window.__PASTEL_DIAGNOSTICS__ || {};
+        const health = {
+            url: window.location.href,
+            pathname: window.location.pathname,
+            title: document.title,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString(),
+            tokens: {},
+            dom: {},
+            pageErrors: []
+        };
+
+        // 1. 토큰 및 ChatId 점검
+        try {
+            health.tokens.capturedCrackToken = !!capturedCrackToken;
+            health.tokens.capturedCrackChatId = capturedCrackChatId || 'none';
+            health.tokens.authStorageExists = !!localStorage.getItem('auth-storage');
+            if (health.tokens.authStorageExists) {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+                    health.tokens.authStorageKeys = Object.keys(parsed?.state || parsed || {});
+                    health.tokens.hasAccessTokenInState = !!(parsed?.state?.accessToken || parsed?.accessToken);
+                } catch (_) {
+                    health.tokens.authStorageKeys = 'JSON Parse Error';
+                }
+            }
+            health.tokens.hasCookieAccessToken = /(?:^|; )access_token=/.test(document.cookie);
+        } catch (e) {
+            health.tokens.checkError = String(e);
+        }
+
+        // 2. Wrtn DOM 구조 점검 (업데이트로 클래스 변경 여부)
+        try {
+            health.dom.subHeader = !!(document.querySelector('.absolute.z-docked.left-0.w-full.h-12') || document.querySelector('.h-12.px-5.flex.justify-between'));
+            health.dom.inputWrapper = !!(document.querySelector('.bg-bg_screen.pointer-events-auto') || document.querySelector('.pointer-events-auto') || document.querySelector('.max-w-\\[768px\\].py-4'));
+            
+            let sendBtnFound = false;
+            const pathList = document.querySelectorAll('svg path');
+            for (const p of pathList) {
+                const d = p.getAttribute('d') || '';
+                if (d.startsWith('M18.77 11.13')) {
+                    sendBtnFound = true;
+                    break;
+                }
+            }
+            health.dom.nativeSendButton = sendBtnFound;
+            health.dom.messagesContainer = !!document.querySelector('.flex.flex-col-reverse.w-full');
+            health.dom.reactRoot = !!(document.getElementById('__next') || document.getElementById('root') || document.querySelector('[data-reactroot]'));
+            health.dom.hasRecaptcha = !!(window.grecaptcha || (typeof unsafeWindow !== 'undefined' && unsafeWindow.grecaptcha));
+            health.dom.hasEnterprise = !!(window.grecaptcha?.enterprise || (typeof unsafeWindow !== 'undefined' && unsafeWindow.grecaptcha?.enterprise));
+        } catch (e) {
+            health.dom.checkError = String(e);
+        }
+
+        // 3. 페이지 내 표시된 오류 문구 탐색
+        try {
+            const bodyText = document.body ? document.body.innerText : '';
+            const errorKeywords = ['새로고침', '오류가 발생', '일시적인 오류', '다시 시도', '문제가 발생', 'Error', 'Something went wrong', 'Application error'];
+            for (const kw of errorKeywords) {
+                if (bodyText.includes(kw)) {
+                    health.pageErrors.push(kw);
+                }
+            }
+        } catch (_) {}
+
+        return health;
+    }
+
+    function buildDiagnosticReportText() {
+        const diag = window.__PASTEL_DIAGNOSTICS__ || {};
+        const health = runPastelHealthCheck();
+        const errors = diag.errors || [];
+        const logs = diag.consoleLogs || [];
+        const fetchCalls = diag.fetchCalls || [];
+
+        let report = `# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서\n`;
+        report += `- 생성 시각: ${new Date().toLocaleString()}\n`;
+        report += `- 버전: ${diag.version || '2.2.1-debug'}\n`;
+        report += `- 접속 URL: ${health.url}\n`;
+        report += `- 모바일 기기/브라우저: ${health.userAgent}\n\n`;
+
+        report += `## 1. 사이트 DOM & 인증 상태\n`;
+        report += `- 상단 헤더 발견: ${health.dom.subHeader ? '✅ 발견됨' : '❌ 미발견 (클래스명 변경 가능성)'}\n`;
+        report += `- 하단 입력창 발견: ${health.dom.inputWrapper ? '✅ 발견됨' : '❌ 미발견 (클래스명 변경 가능성)'}\n`;
+        report += `- 순정 전송버튼 발견: ${health.dom.nativeSendButton ? '✅ 발견됨' : '❌ 미발견 (SVG 패스 변경 가능성)'}\n`;
+        report += `- 대화방 컨테이너: ${health.dom.messagesContainer ? '✅ 발견됨' : '❌ 미발견'}\n`;
+        report += `- React 루트 상태: ${health.dom.reactRoot ? '✅ 마운트됨' : '⚠️ 확인불가'}\n`;
+        report += `- reCAPTCHA 상태: grecaptcha: ${health.dom.hasRecaptcha ? 'O' : 'X'}, enterprise: ${health.dom.hasEnterprise ? 'O' : 'X'}\n`;
+        report += `- 인증 토큰: captured=${health.tokens.capturedCrackToken ? 'O' : 'X'}, auth-storage=${health.tokens.authStorageExists ? 'O' : 'X'}, cookie=${health.tokens.hasCookieAccessToken ? 'O' : 'X'}\n`;
+        report += `- 채팅방 ID: ${health.tokens.capturedCrackChatId}\n`;
+        if (health.pageErrors.length > 0) {
+            report += `- ⚠️ 페이지 감지 오류 키워드: [${health.pageErrors.join(', ')}]\n`;
+        }
+        report += `\n`;
+
+        report += `## 2. 감지된 에러 및 예외 (${errors.length}건)\n`;
+        if (errors.length === 0) {
+            report += `(기록된 런타임 에러가 없습니다.)\n\n`;
+        } else {
+            errors.forEach((err, idx) => {
+                report += `### 에러 #${idx + 1} [${err.source || 'runtime'}] (${err.time})\n`;
+                report += `- 메시지: ${err.message}\n`;
+                if (err.filename) report += `- 위치: ${err.filename}:${err.lineno}:${err.colno}\n`;
+                if (err.stack) report += `\`\`\`\n${err.stack}\n\`\`\`\n`;
+                report += `\n`;
+            });
+        }
+
+        report += `## 3. 최근 네트워크 요청 (${fetchCalls.length}건)\n`;
+        if (fetchCalls.length === 0) {
+            report += `(최근 네트워크 요청 기록 없음)\n\n`;
+        } else {
+            fetchCalls.slice(-15).forEach((f, idx) => {
+                report += `- [${f.time}] ${f.method} ${f.url} ➔ ${f.status} ${f.error ? `(${f.error})` : ''}\n`;
+            });
+            report += `\n`;
+        }
+
+        report += `## 4. 최근 콘솔 로그 (최근 30건)\n`;
+        if (logs.length === 0) {
+            report += `(콘솔 로그 없음)\n\n`;
+        } else {
+            logs.slice(-30).forEach(l => {
+                report += `[${l.time}] [${l.level.toUpperCase()}] ${l.text}\n`;
+            });
+            report += `\n`;
+        }
+
+        report += `=== 보고서 끝 ===`;
+        return report;
+    }
+
+    let currentDiagTab = 'health';
+
+    function initPastelMobileDiagnosticTool() {
+        try {
+            const rootTarget = document.body || document.documentElement;
+            if (!rootTarget) return;
+
+            // 1. 플로팅 버튼 생성 (없으면 주입)
+            let floatBtn = document.getElementById('pastel-diag-floating-btn');
+            if (!floatBtn) {
+                floatBtn = document.createElement('div');
+                floatBtn.id = 'pastel-diag-floating-btn';
+                floatBtn.style.cssText = `
+                    position: fixed !important;
+                    bottom: 85px !important;
+                    right: 16px !important;
+                    z-index: 2147483647 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                    padding: 8px 14px !important;
+                    border-radius: 9999px !important;
+                    background: #18181b !important;
+                    color: #ffffff !important;
+                    font-size: 13px !important;
+                    font-weight: 700 !important;
+                    border: 2px solid #8b5cf6 !important;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
+                    cursor: pointer !important;
+                    user-select: none !important;
+                    -webkit-tap-highlight-color: transparent !important;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                    transition: transform 0.15s ease, background 0.2s ease !important;
+                `;
+                floatBtn.innerHTML = `<span>🐞 PASTEL 진단</span>`;
+                rootTarget.appendChild(floatBtn);
+
+                // 모바일 터치 드래그 지원
+                let isDragging = false;
+                let touchStartX = 0, touchStartY = 0;
+                let btnStartX = 0, btnStartY = 0;
+                let hasMoved = false;
+
+                floatBtn.addEventListener('touchstart', (e) => {
+                    const t = e.touches[0];
+                    isDragging = true;
+                    hasMoved = false;
+                    touchStartX = t.clientX;
+                    touchStartY = t.clientY;
+                    const rect = floatBtn.getBoundingClientRect();
+                    btnStartX = rect.left;
+                    btnStartY = rect.top;
+                }, { passive: true });
+
+                window.addEventListener('touchmove', (e) => {
+                    if (!isDragging) return;
+                    const t = e.touches[0];
+                    const dx = t.clientX - touchStartX;
+                    const dy = t.clientY - touchStartY;
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                        hasMoved = true;
+                        floatBtn.style.left = `${Math.max(10, Math.min(window.innerWidth - 130, btnStartX + dx))}px`;
+                        floatBtn.style.top = `${Math.max(10, Math.min(window.innerHeight - 50, btnStartY + dy))}px`;
+                        floatBtn.style.bottom = 'auto';
+                        floatBtn.style.right = 'auto';
+                    }
+                }, { passive: true });
+
+                window.addEventListener('touchend', () => {
+                    if (isDragging && !hasMoved) {
+                        toggleDiagnosticModal();
+                    }
+                    isDragging = false;
+                });
+
+                floatBtn.addEventListener('click', (e) => {
+                    if (!hasMoved) {
+                        toggleDiagnosticModal();
+                    }
+                });
+            }
+
+            // 플로팅 버튼 배지 및 색상 실시간 갱신
+            const diag = window.__PASTEL_DIAGNOSTICS__ || {};
+            const errCount = (diag.errors || []).length;
+            if (errCount > 0) {
+                floatBtn.style.border = '2px solid #ef4444';
+                floatBtn.style.background = '#450a0a';
+                floatBtn.innerHTML = `<span>🔴 에러 ${errCount}건</span>`;
+            } else {
+                floatBtn.style.border = '2px solid #8b5cf6';
+                floatBtn.style.background = '#18181b';
+                floatBtn.innerHTML = `<span>🐞 PASTEL 진단</span>`;
+            }
+
+            // 2. 모달 컨테이너 생성 (없으면 주입)
+            let modal = document.getElementById('pastel-diag-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'pastel-diag-modal';
+                modal.style.cssText = `
+                    display: none;
+                    position: fixed !important;
+                    inset: 0 !important;
+                    z-index: 2147483647 !important;
+                    background: rgba(0, 0, 0, 0.75) !important;
+                    backdrop-filter: blur(4px) !important;
+                    flex-direction: column !important;
+                    justify-content: flex-end !important;
+                    align-items: center !important;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace !important;
+                `;
+                modal.innerHTML = `
+                    <div id="pastel-diag-sheet" style="
+                        width: 100%;
+                        max-width: 640px;
+                        height: 85vh;
+                        max-height: 85vh;
+                        background: #0f1015;
+                        color: #f4f4f5;
+                        border-radius: 20px 20px 0 0;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                        box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
+                        border: 1px solid rgba(255,255,255,0.1);
+                        border-bottom: none;
+                    ">
+                        <!-- 모달 헤더 -->
+                        <div style="padding: 14px 16px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; background: #18181b;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 16px; font-weight: bold; color: #a78bfa;">🐞 PASTELchat 진단 로거</span>
+                                <span id="pastel-diag-header-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: #27272a; color: #a1a1aa;">v2.2.1-debug</span>
+                            </div>
+                            <button id="pastel-diag-close-btn" style="background: transparent; border: none; color: #a1a1aa; font-size: 20px; font-weight: bold; cursor: pointer; padding: 4px 8px;">✕</button>
+                        </div>
+
+                        <!-- 복사 및 핵심 액션 바 -->
+                        <div style="padding: 12px 16px; background: #13141a; border-bottom: 1px solid #27272a; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <button id="pastel-diag-copy-all-btn" style="
+                                flex: 2;
+                                min-width: 160px;
+                                background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+                                color: white;
+                                font-weight: bold;
+                                font-size: 14px;
+                                padding: 10px 14px;
+                                border: none;
+                                border-radius: 10px;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 6px;
+                                box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+                            ">
+                                📋 진단 로그 전체 복사
+                            </button>
+                            <button id="pastel-diag-refresh-btn" style="
+                                flex: 1;
+                                background: #27272a;
+                                color: #e4e4e7;
+                                font-size: 13px;
+                                font-weight: 600;
+                                padding: 10px 12px;
+                                border: 1px solid #3f3f46;
+                                border-radius: 10px;
+                                cursor: pointer;
+                            ">
+                                🔄 재점검
+                            </button>
+                            <button id="pastel-diag-clear-btn" style="
+                                background: #27272a;
+                                color: #ef4444;
+                                font-size: 13px;
+                                padding: 10px 12px;
+                                border: 1px solid #3f3f46;
+                                border-radius: 10px;
+                                cursor: pointer;
+                            ">
+                                🗑️ 지우기
+                            </button>
+                        </div>
+
+                        <!-- 탭 바 -->
+                        <div style="display: flex; background: #18181b; border-bottom: 1px solid #27272a; overflow-x: auto; padding: 4px 8px; gap: 4px;">
+                            <button class="pastel-tab-btn" data-tab="health" style="padding: 8px 12px; border: none; background: transparent; color: #a78bfa; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🔍 상태 진단</button>
+                            <button class="pastel-tab-btn" data-tab="errors" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🚨 에러 목록 (<span id="pastel-tab-err-cnt">0</span>)</button>
+                            <button class="pastel-tab-btn" data-tab="network" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🌐 네트워크 (<span id="pastel-tab-net-cnt">0</span>)</button>
+                            <button class="pastel-tab-btn" data-tab="console" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">📜 콘솔 (<span id="pastel-tab-log-cnt">0</span>)</button>
+                            <button class="pastel-tab-btn" data-tab="raw" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">📄 원문 텍스트</button>
+                        </div>
+
+                        <!-- 피드백 토스트 -->
+                        <div id="pastel-diag-toast" style="display: none; padding: 8px 14px; background: #10b981; color: #ffffff; font-size: 12px; font-weight: bold; text-align: center;"></div>
+
+                        <!-- 탭 컨텐츠 영역 -->
+                        <div id="pastel-diag-content" style="flex: 1; overflow-y: auto; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
+                            <!-- 동적 렌더링 -->
+                        </div>
+                    </div>
+                `;
+                rootTarget.appendChild(modal);
+
+                // 모달 내부 이벤트 바인딩
+                modal.querySelector('#pastel-diag-close-btn').onclick = toggleDiagnosticModal;
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) toggleDiagnosticModal();
+                });
+
+                // 복사 버튼
+                modal.querySelector('#pastel-diag-copy-all-btn').onclick = () => {
+                    copyDiagnosticReportToClipboard();
+                };
+
+                // 재점검 버튼
+                modal.querySelector('#pastel-diag-refresh-btn').onclick = () => {
+                    renderDiagnosticModalContent();
+                    showDiagToast('🔄 사이트 상태를 실시간 재점검했습니다.');
+                };
+
+                // 지우기 버튼
+                modal.querySelector('#pastel-diag-clear-btn').onclick = () => {
+                    if (window.__PASTEL_DIAGNOSTICS__) {
+                        window.__PASTEL_DIAGNOSTICS__.errors = [];
+                        window.__PASTEL_DIAGNOSTICS__.consoleLogs = [];
+                        window.__PASTEL_DIAGNOSTICS__.fetchCalls = [];
+                        try { sessionStorage.removeItem('pastel_diag_last_errors'); } catch (_) {}
+                    }
+                    renderDiagnosticModalContent();
+                    showDiagToast('🗑️ 로그를 초기화했습니다.');
+                };
+
+                // 탭 버튼들
+                modal.querySelectorAll('.pastel-tab-btn').forEach(btn => {
+                    btn.onclick = () => {
+                        currentDiagTab = btn.getAttribute('data-tab');
+                        modal.querySelectorAll('.pastel-tab-btn').forEach(b => {
+                            b.style.color = (b.getAttribute('data-tab') === currentDiagTab) ? '#a78bfa' : '#71717a';
+                            b.style.background = (b.getAttribute('data-tab') === currentDiagTab) ? '#27272a' : 'transparent';
+                        });
+                        renderDiagnosticModalContent();
+                    };
+                });
+            }
+        } catch (_) {}
+    }
+
+    function toggleDiagnosticModal() {
+        const modal = document.getElementById('pastel-diag-modal');
+        if (!modal) return;
+        const isOpen = modal.style.display === 'flex';
+        if (isOpen) {
+            modal.style.display = 'none';
+        } else {
+            modal.style.display = 'flex';
+            renderDiagnosticModalContent();
+        }
+    }
+
+    function showDiagToast(msg) {
+        const toast = document.getElementById('pastel-diag-toast');
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 2500);
+    }
+
+    function copyDiagnosticReportToClipboard() {
+        const reportText = buildDiagnosticReportText();
+        let success = false;
+
+        // 1. 최신 Clipboard API 시도
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(reportText).then(() => {
+                showDiagToast('✅ 로그가 클립보드에 복사되었습니다! 채팅에 그대로 붙여넣어 주세요.');
+            }).catch(() => {
+                fallbackCopy(reportText);
+            });
+        } else {
+            fallbackCopy(reportText);
+        }
+
+        function fallbackCopy(text) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                success = document.execCommand('copy');
+                document.body.removeChild(ta);
+                if (success) {
+                    showDiagToast('✅ 로그가 클립보드에 복사되었습니다! 채팅에 그대로 붙여넣어 주세요.');
+                } else {
+                    showDiagToast('⚠️ 복사 실패: 아래 원문 텍스트 탭에서 직접 복사해 주세요.');
+                }
+            } catch (_) {
+                showDiagToast('⚠️ 복사 실패: 아래 원문 텍스트 탭에서 직접 복사해 주세요.');
+            }
+        }
+    }
+
+    function renderDiagnosticModalContent() {
+        const modal = document.getElementById('pastel-diag-modal');
+        const container = document.getElementById('pastel-diag-content');
+        if (!modal || !container) return;
+
+        const diag = window.__PASTEL_DIAGNOSTICS__ || {};
+        const errors = diag.errors || [];
+        const logs = diag.consoleLogs || [];
+        const fetchCalls = diag.fetchCalls || [];
+        const health = runPastelHealthCheck();
+
+        // 탭 카운터 갱신
+        const errSpan = document.getElementById('pastel-tab-err-cnt');
+        if (errSpan) errSpan.textContent = String(errors.length);
+        const netSpan = document.getElementById('pastel-tab-net-cnt');
+        if (netSpan) netSpan.textContent = String(fetchCalls.length);
+        const logSpan = document.getElementById('pastel-tab-log-cnt');
+        if (logSpan) logSpan.textContent = String(logs.length);
+
+        const headerBadge = document.getElementById('pastel-diag-header-badge');
+        if (headerBadge) {
+            headerBadge.textContent = errors.length > 0 ? `에러 ${errors.length}건 감지` : '런타임 정상';
+            headerBadge.style.background = errors.length > 0 ? '#7f1d1d' : '#14532d';
+            headerBadge.style.color = errors.length > 0 ? '#fca5a5' : '#86efac';
+        }
+
+        // 탭별 뷰 렌더링
+        if (currentDiagTab === 'health') {
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- 사이트 상태 카드 -->
+                    <div style="background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
+                        <div style="font-weight: bold; color: #a78bfa; margin-bottom: 8px;">🌐 기본 사이트 정보</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px; color: #d4d4d8;">
+                            <div><strong>URL:</strong> <span style="word-break: break-all; color: #60a5fa;">${health.url}</span></div>
+                            <div><strong>제목:</strong> ${health.title || '(없음)'}</div>
+                            <div><strong>기기 정보:</strong> <span style="font-size: 11px; color: #a1a1aa; word-break: break-all;">${health.userAgent}</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 크랙 DOM 구조 검사 카드 -->
+                    <div style="background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
+                        <div style="font-weight: bold; color: #a78bfa; margin-bottom: 8px;">🔍 크랙 DOM 엘리먼트 감지 상태</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div style="padding: 6px; background: ${health.dom.subHeader ? '#064e3b' : '#450a0a'}; border-radius: 6px;">
+                                상단 헤더: ${health.dom.subHeader ? '✅ 발견' : '❌ 미발견'}
+                            </div>
+                            <div style="padding: 6px; background: ${health.dom.inputWrapper ? '#064e3b' : '#450a0a'}; border-radius: 6px;">
+                                하단 입력바: ${health.dom.inputWrapper ? '✅ 발견' : '❌ 미발견'}
+                            </div>
+                            <div style="padding: 6px; background: ${health.dom.nativeSendButton ? '#064e3b' : '#450a0a'}; border-radius: 6px;">
+                                순정 전송버튼: ${health.dom.nativeSendButton ? '✅ 발견' : '❌ 미발견'}
+                            </div>
+                            <div style="padding: 6px; background: ${health.dom.messagesContainer ? '#064e3b' : '#450a0a'}; border-radius: 6px;">
+                                대화 메시지창: ${health.dom.messagesContainer ? '✅ 발견' : '❌ 미발견'}
+                            </div>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 11px; color: #a1a1aa;">
+                            * 사이트 업데이트로 클래스명이 바뀌면 '미발견'으로 뜹니다.
+                        </div>
+                    </div>
+
+                    <!-- 인증 및 보안 상태 카드 -->
+                    <div style="background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
+                        <div style="font-weight: bold; color: #a78bfa; margin-bottom: 8px;">🔑 인증 & 토큰 감지</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px; color: #d4d4d8;">
+                            <div>인터셉트 토큰: ${health.tokens.capturedCrackToken ? '✅ 캡처됨' : '❌ 미캡처'}</div>
+                            <div>현재 ChatId: <span style="color: #facc15;">${health.tokens.capturedCrackChatId}</span></div>
+                            <div>auth-storage: ${health.tokens.authStorageExists ? '✅ 존재' : '❌ 없음'}</div>
+                            <div>쿠키 access_token: ${health.tokens.hasCookieAccessToken ? '✅ 존재' : '❌ 없음'}</div>
+                            <div>reCAPTCHA Enterprise: ${health.dom.hasEnterprise ? '✅ 활성' : '❌ 없음'}</div>
+                        </div>
+                    </div>
+
+                    ${health.pageErrors.length > 0 ? `
+                        <div style="background: #450a0a; border: 1px solid #ef4444; border-radius: 8px; padding: 12px; color: #fca5a5;">
+                            <div style="font-weight: bold; margin-bottom: 4px;">⚠️ 페이지 내 오류 문구 감지됨!</div>
+                            <div>감지된 키워드: [${health.pageErrors.join(', ')}]</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else if (currentDiagTab === 'errors') {
+            if (errors.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px 16px; color: #10b981;">
+                        <div style="font-size: 32px; margin-bottom: 8px;">✨</div>
+                        <div style="font-weight: bold; font-size: 15px;">현재 감지된 에러가 없습니다.</div>
+                        <div style="color: #71717a; font-size: 12px; margin-top: 4px;">런타임 예외나 unhandledrejection 발생 시 이곳에 즉시 기록됩니다.</div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = errors.map((err, idx) => `
+                    <div style="background: #1c1114; border: 1px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-weight: bold; color: #f87171;">#${idx + 1} [${err.source || 'runtime'}]</span>
+                            <span style="font-size: 11px; color: #a1a1aa;">${err.time}</span>
+                        </div>
+                        <div style="font-size: 13px; font-weight: bold; color: #ffffff; margin-bottom: 6px; word-break: break-all;">
+                            ${err.message}
+                        </div>
+                        ${err.filename ? `
+                            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">
+                                📍 ${err.filename}:${err.lineno}:${err.colno}
+                            </div>
+                        ` : ''}
+                        ${err.stack ? `
+                            <div style="background: #09090b; padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 11px; color: #cbd5e1; max-height: 140px; overflow-y: auto;">
+                                <pre style="margin: 0; white-space: pre-wrap;">${err.stack}</pre>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            }
+        } else if (currentDiagTab === 'network') {
+            if (fetchCalls.length === 0) {
+                container.innerHTML = `<div style="text-align: center; padding: 30px; color: #71717a;">최근 발생한 API 요청이 없습니다.</div>`;
+            } else {
+                container.innerHTML = fetchCalls.slice(-25).reverse().map(f => `
+                    <div style="padding: 8px 10px; background: #18181b; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
+                            <span style="font-weight: bold; color: #38bdf8;">${f.method}</span>
+                            <span style="color: #e4e4e7; margin-left: 6px;" title="${f.url}">${f.url}</span>
+                        </div>
+                        <span style="
+                            font-size: 11px;
+                            padding: 2px 6px;
+                            border-radius: 4px;
+                            font-weight: bold;
+                            background: ${String(f.status).startsWith('2') ? '#14532d' : '#7f1d1d'};
+                            color: ${String(f.status).startsWith('2') ? '#86efac' : '#fca5a5'};
+                        ">
+                            ${f.status}
+                        </span>
+                    </div>
+                `).join('');
+            }
+        } else if (currentDiagTab === 'console') {
+            if (logs.length === 0) {
+                container.innerHTML = `<div style="text-align: center; padding: 30px; color: #71717a;">출력된 콘솔 로그가 없습니다.</div>`;
+            } else {
+                container.innerHTML = logs.slice(-40).reverse().map(l => {
+                    let color = '#d4d4d8';
+                    if (l.level === 'error') color = '#f87171';
+                    else if (l.level === 'warn') color = '#fbbf24';
+                    else if (l.level === 'info') color = '#60a5fa';
+
+                    return `
+                        <div style="padding: 6px 8px; border-bottom: 1px solid #1f1f23; font-family: monospace; font-size: 11px; display: flex; gap: 6px;">
+                            <span style="color: #71717a; flex-shrink: 0;">${l.time}</span>
+                            <span style="color: ${color}; font-weight: bold; flex-shrink: 0;">[${l.level.toUpperCase()}]</span>
+                            <span style="color: ${color}; word-break: break-all;">${l.text}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        } else if (currentDiagTab === 'raw') {
+            const rawReport = buildDiagnosticReportText();
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 8px; height: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 12px; color: #a1a1aa;">클립보드 차단 기기용 수동 복사 창</span>
+                        <button id="pastel-raw-select-all" style="background: #27272a; border: 1px solid #3f3f46; color: #e4e4e7; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;">
+                            전체 선택
+                        </button>
+                    </div>
+                    <textarea id="pastel-raw-textarea" readonly style="
+                        width: 100%;
+                        height: 380px;
+                        background: #09090b;
+                        color: #a7f3d0;
+                        font-family: monospace;
+                        font-size: 11px;
+                        padding: 10px;
+                        border: 1px solid #27272a;
+                        border-radius: 8px;
+                        box-sizing: border-box;
+                        resize: none;
+                    ">${rawReport}</textarea>
+                </div>
+            `;
+            const selBtn = document.getElementById('pastel-raw-select-all');
+            const ta = document.getElementById('pastel-raw-textarea');
+            if (selBtn && ta) {
+                selBtn.onclick = () => {
+                    ta.focus();
+                    ta.select();
+                    showDiagToast('텍스트가 전체 선택되었습니다. 복사하여 전달해 주세요.');
+                };
+            }
+        }
+    }
+
+    // UI 업데이트 트리거 연결
+    window.__PASTEL_UPDATE_DIAG_UI__ = () => {
+        try {
+            initPastelMobileDiagnosticTool();
+            const modal = document.getElementById('pastel-diag-modal');
+            if (modal && modal.style.display === 'flex') {
+                renderDiagnosticModalContent();
+            }
+        } catch (_) {}
+    };
+
+    // DOM 준비 완료 시 즉시 초기화
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', checkAndInject);
+        document.addEventListener('DOMContentLoaded', () => {
+            initPastelMobileDiagnosticTool();
+            checkAndInject();
+        });
     } else {
+        initPastelMobileDiagnosticTool();
         checkAndInject();
     }
 
-    // SPA 라우팅으로 헤더가 새로 렌더링되어도 즉시 버튼을 복원하도록 0.5초 주기로 감시
-    setInterval(checkAndInject, 500);
+    // SPA 라우팅 및 동적 렌더링 대비 상시 감시 루프
+    setInterval(() => {
+        initPastelMobileDiagnosticTool();
+        checkAndInject();
+    }, 500);
 
 })();
+

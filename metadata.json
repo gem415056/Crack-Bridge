@@ -1,0 +1,8 @@
+{
+  "name": "PASTELchat × CRACK Bridge",
+  "description": "PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai with mobile runtime error diagnostics and logging tools",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
