@@ -87,17 +87,17 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  v2.2.6
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  v2.2.7-debug
                 </span>
               </div>
-              <p className="text-xs text-slate-400">가로 스크롤 툴바 & AI 모델 선택 / 전송 버튼 우측 고정 슬롯 지원 버전</p>
+              <p className="text-xs text-slate-400">모바일 하단 버튼 전수 스캔 & 진단 콘솔 재가동 버전</p>
             </div>
           </div>
           <button
             onClick={handleCopyScript}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all text-white shadow-sm shadow-emerald-600/30 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all text-white shadow-sm shadow-indigo-600/30 cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? '복사됨!' : '코드 복사'}</span>
@@ -108,21 +108,21 @@ TypeError: Cannot read properties of null (reading 'appendChild')
       {/* 메인 컨텐츠 영역 */}
       <main className="max-w-4xl mx-auto px-4 py-6 w-full flex-1 flex flex-col gap-6">
         {/* 상태 알림 카드 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-teal-950/60 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-emerald-950/30">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-purple-950/60 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-indigo-950/30">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mt-0.5">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 mt-0.5">
+              <Bug className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                가로 스크롤 툴바 & AI 모델 선택 / 전송 버튼 우측 고정 슬롯 배치 완료
+                크랙 하단 순정 버튼 정밀 분석 진단 콘솔 (v2.2.7-debug) 가동 중
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                모바일 화면에서 10개의 구슬 버튼이 영역을 모두 차지해 모델 선택 버튼과 전송 버튼이 잘리거나 밀리던 현상을 해결했습니다. 좌측 구슬/단축어 툴바를 스크롤바 없는 깔끔한 가로 스크롤 영역으로 지정하고, 우측에 AI 모델 선택 버튼과 순정 전송 버튼을 선명하게 항상 고정 노출합니다.
+                크랙 하단 툴바에 존재하는 모든 순정 버튼들의 ID, 클래스명, 텍스트, SVG 경로를 실시간으로 정밀 스캔합니다. 우측 하단의 <strong>[🐞 PASTEL 진단 v2.2.7-debug]</strong> 버튼을 누른 후 <strong>[📋 진단 보고서 전체 복사]</strong>를 터치하여 로그를 복사해 주시면, 모델 선택 버튼과 전송 버튼의 위치 및 구성을 100% 원본 일치시킵니다.
               </p>
             </div>
           </div>
