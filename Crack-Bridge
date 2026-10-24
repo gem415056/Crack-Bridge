@@ -29,7 +29,7 @@
      * ========================================================================== */
     const _DIAG_START_TIME = Date.now();
     window.__PASTEL_DIAGNOSTICS__ = window.__PASTEL_DIAGNOSTICS__ || {
-        version: '2.2.1-debug',
+        version: '2.2.2-debug',
         startTime: _DIAG_START_TIME,
         errors: [],
         consoleLogs: [],
@@ -37,15 +37,44 @@
         domStatus: {},
         addError: function(err, source) {
             try {
+                let msg = '';
+                let stack = '';
+                let filename = '';
+                let lineno = '';
+                let colno = '';
+
+                if (err instanceof Error || (err && (err.name || err.message))) {
+                    msg = `${err.name || 'Error'}: ${err.message || ''}`;
+                    stack = err.stack || '';
+                    if (err.componentStack) stack += `\nComponentStack:\n${err.componentStack}`;
+                } else if (typeof err === 'object' && err !== null) {
+                    try {
+                        const props = Object.getOwnPropertyNames(err);
+                        const collected = {};
+                        for (const p of props) {
+                            try { collected[p] = err[p]; } catch (_) {}
+                        }
+                        msg = collected.message || collected.reason || JSON.stringify(collected, null, 2);
+                        stack = collected.stack || '';
+                        filename = collected.filename || '';
+                        lineno = collected.lineno || '';
+                        colno = collected.colno || '';
+                    } catch (_) {
+                        msg = String(err);
+                    }
+                } else {
+                    msg = String(err);
+                }
+
                 const item = {
                     time: new Date().toLocaleTimeString(),
                     timestamp: Date.now(),
                     source: source || 'runtime',
-                    message: (err && (err.message || err.reason || String(err))) || 'Unknown Error',
-                    stack: (err && err.stack) || (new Error().stack) || '',
-                    filename: (err && err.filename) || '',
-                    lineno: (err && err.lineno) || '',
-                    colno: (err && err.colno) || ''
+                    message: msg || 'Unknown Error',
+                    stack: stack || (new Error().stack) || '',
+                    filename: filename || '',
+                    lineno: lineno || '',
+                    colno: colno || ''
                 };
                 this.errors.push(item);
                 if (this.errors.length > 50) this.errors.shift();
@@ -60,11 +89,22 @@
         addLog: function(level, args) {
             try {
                 const str = Array.from(args).map(a => {
-                    if (typeof a === 'object') {
-                        try { return JSON.stringify(a); } catch (_) { return String(a); }
+                    if (a instanceof Error) {
+                        return `${a.name}: ${a.message}\n${a.stack || ''}`;
+                    }
+                    if (typeof a === 'object' && a !== null) {
+                        try {
+                            const keys = Object.getOwnPropertyNames(a);
+                            const out = {};
+                            for (const k of keys) {
+                                try { out[k] = a[k]; } catch (_) {}
+                            }
+                            return JSON.stringify(out);
+                        } catch (_) { return String(a); }
                     }
                     return String(a);
                 }).join(' ');
+
                 this.consoleLogs.push({
                     time: new Date().toLocaleTimeString(),
                     level: level,
@@ -126,7 +166,13 @@
 
     console.error = function(...args) {
         window.__PASTEL_DIAGNOSTICS__.addLog('error', args);
-        window.__PASTEL_DIAGNOSTICS__.addError({ message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, 'console.error');
+        args.forEach(a => {
+            if (a instanceof Error || (a && typeof a === 'object' && (a.message || a.stack || a.digest))) {
+                window.__PASTEL_DIAGNOSTICS__.addError(a, 'console.error');
+            } else if (typeof a === 'string' && a.includes('exception')) {
+                window.__PASTEL_DIAGNOSTICS__.addError({ message: a }, 'console.error');
+            }
+        });
         return origConsole.error.apply(console, args);
     };
     console.warn = function(...args) {
@@ -5790,7 +5836,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
 
     // [유저 본문 100% 보존 & 로어만 정밀 은닉 엔진]
     function stripLoreOnlyFromView() {
-        const chatRoot = document.querySelector('.flex.flex-col-reverse.w-full') || document.querySelector('main') || document.body;
+        const chatRoot = document.querySelector('.flex.flex-col-reverse.w-full') || document.querySelector('[data-chat-messages]');
         if (!chatRoot) return;
 
         // 1. <p> 태그 단위로 렌더링된 경우: [LORE로 시작하는 개별 <p> 단락만 숨김 (수정 에디터 내부의 p는 100% 노출 보존)
@@ -5986,6 +6032,76 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         return health;
     }
 
+    function scanWrtnDomStructure() {
+        const report = [];
+        try {
+            report.push(`### A. 텍스트 입력창 (Textarea / Input / Editable)`);
+            const inputs = document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"]');
+            if (inputs.length === 0) {
+                report.push(`- (감지된 입력창 없음)`);
+            } else {
+                inputs.forEach((el, idx) => {
+                    if (el.closest('#pastel-diag-modal') || el.closest('#ep-chat-right-drawer')) return;
+                    const ph = el.getAttribute('placeholder') || '';
+                    const tag = el.tagName.toLowerCase();
+                    const cls = el.className ? `.${el.className.trim().split(/\s+/).join('.')}` : '(no class)';
+                    const p1 = el.parentElement ? `<${el.parentElement.tagName.toLowerCase()} class="${el.parentElement.className}">` : '';
+                    const p2 = el.parentElement?.parentElement ? `<${el.parentElement.parentElement.tagName.toLowerCase()} class="${el.parentElement.parentElement.className}">` : '';
+                    report.push(`[입력창 #${idx + 1}] <${tag}> class: "${cls}" placeholder: "${ph}"\n  └ 부모 1: ${p1}\n  └ 부모 2: ${p2}`);
+                });
+            }
+
+            report.push(`\n### B. 주요 버튼들 (Button & SVG Path)`);
+            const buttons = document.querySelectorAll('button');
+            if (buttons.length === 0) {
+                report.push(`- (감지된 버튼 없음)`);
+            } else {
+                buttons.forEach((btn, idx) => {
+                    if (btn.closest('#pastel-diag-modal') || btn.closest('#ep-chat-right-drawer')) return;
+                    const txt = (btn.textContent || '').trim().slice(0, 30);
+                    const title = btn.getAttribute('title') || btn.getAttribute('aria-label') || '';
+                    const cls = btn.className ? `.${btn.className.trim().split(/\s+/).join('.')}` : '(no class)';
+                    const svgPaths = [];
+                    btn.querySelectorAll('svg path').forEach(p => {
+                        const d = p.getAttribute('d') || '';
+                        if (d) svgPaths.push(d.slice(0, 45) + (d.length > 45 ? '...' : ''));
+                    });
+                    if (svgPaths.length > 0 || txt || title) {
+                        report.push(`[버튼 #${idx + 1}] "${txt || title || 'icon'}" class: "${cls}"\n  └ SVG d: ${svgPaths.join(' | ') || 'none'}\n  └ 부모: <${btn.parentElement?.tagName.toLowerCase()} class="${btn.parentElement?.className || ''}">`);
+                    }
+                });
+            }
+
+            report.push(`\n### C. 상단 헤더 / 툴바 후보군`);
+            const headers = document.querySelectorAll('header, nav, [role="banner"], [class*="header"], [class*="top-"]');
+            if (headers.length === 0) {
+                report.push(`- (감지된 헤더 없음)`);
+            } else {
+                headers.forEach((h, idx) => {
+                    if (h.closest('#pastel-diag-modal') || h.closest('#ep-chat-right-drawer')) return;
+                    report.push(`[헤더 #${idx + 1}] <${h.tagName.toLowerCase()} class="${h.className}"> (자식 버튼 ${h.querySelectorAll('button').length}개)`);
+                });
+            }
+
+            report.push(`\n### D. Main / 대화 컨테이너 후보군`);
+            const main = document.querySelector('main');
+            if (main) {
+                report.push(`[main] class: "${main.className}"`);
+                Array.from(main.children).slice(0, 8).forEach((c, idx) => {
+                    report.push(`  ├ 자식 #${idx + 1}: <${c.tagName.toLowerCase()} class="${c.className}">`);
+                });
+            }
+            const chatContainers = document.querySelectorAll('[class*="scroll"], [class*="chat"], [class*="message"], [class*="conversation"]');
+            chatContainers.forEach((c, idx) => {
+                if (c.closest('#pastel-diag-modal') || c.closest('#ep-chat-right-drawer')) return;
+                report.push(`[대화후보 #${idx + 1}] <${c.tagName.toLowerCase()} class="${c.className}">`);
+            });
+        } catch (e) {
+            report.push(`(DOM 스캔 중 예외: ${e.message})`);
+        }
+        return report.join('\n');
+    }
+
     function buildDiagnosticReportText() {
         const diag = window.__PASTEL_DIAGNOSTICS__ || {};
         const health = runPastelHealthCheck();
@@ -5995,7 +6111,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
 
         let report = `# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서\n`;
         report += `- 생성 시각: ${new Date().toLocaleString()}\n`;
-        report += `- 버전: ${diag.version || '2.2.1-debug'}\n`;
+        report += `- 버전: ${diag.version || '2.2.2-debug'}\n`;
         report += `- 접속 URL: ${health.url}\n`;
         report += `- 모바일 기기/브라우저: ${health.userAgent}\n\n`;
 
@@ -6045,6 +6161,9 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
             });
             report += `\n`;
         }
+
+        report += `## 5. 사이트 DOM 구조 실시간 자동 분석 (신규 클래스 감지 결과)\n`;
+        report += scanWrtnDomStructure() + '\n\n';
 
         report += `=== 보고서 끝 ===`;
         return report;
@@ -6182,7 +6301,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                         <div style="padding: 14px 16px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; background: #18181b;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 16px; font-weight: bold; color: #a78bfa;">🐞 PASTELchat 진단 로거</span>
-                                <span id="pastel-diag-header-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: #27272a; color: #a1a1aa;">v2.2.1-debug</span>
+                                <span id="pastel-diag-header-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: #27272a; color: #a1a1aa;">v2.2.2-debug</span>
                             </div>
                             <button id="pastel-diag-close-btn" style="background: transparent; border: none; color: #a1a1aa; font-size: 20px; font-weight: bold; cursor: pointer; padding: 4px 8px;">✕</button>
                         </div>
@@ -6237,10 +6356,11 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                         <!-- 탭 바 -->
                         <div style="display: flex; background: #18181b; border-bottom: 1px solid #27272a; overflow-x: auto; padding: 4px 8px; gap: 4px;">
                             <button class="pastel-tab-btn" data-tab="health" style="padding: 8px 12px; border: none; background: transparent; color: #a78bfa; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🔍 상태 진단</button>
+                            <button class="pastel-tab-btn" data-tab="dom" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🧭 DOM 구조</button>
                             <button class="pastel-tab-btn" data-tab="errors" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🚨 에러 목록 (<span id="pastel-tab-err-cnt">0</span>)</button>
                             <button class="pastel-tab-btn" data-tab="network" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">🌐 네트워크 (<span id="pastel-tab-net-cnt">0</span>)</button>
                             <button class="pastel-tab-btn" data-tab="console" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">📜 콘솔 (<span id="pastel-tab-log-cnt">0</span>)</button>
-                            <button class="pastel-tab-btn" data-tab="raw" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">📄 원문 텍스트</button>
+                            <button class="pastel-tab-btn" data-tab="raw" style="padding: 8px 12px; border: none; background: transparent; color: #71717a; font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 6px;">📄 원문</button>
                         </div>
 
                         <!-- 피드백 토스트 -->
@@ -6437,6 +6557,14 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                             <div>감지된 키워드: [${health.pageErrors.join(', ')}]</div>
                         </div>
                     ` : ''}
+                </div>
+            `;
+        } else if (currentDiagTab === 'dom') {
+            const domText = scanWrtnDomStructure();
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="font-size: 12px; color: #a78bfa; font-weight: bold;">🧭 실시간 감지된 페이지 DOM 구조 (새 클래스명 목록)</div>
+                    <pre style="background: #09090b; padding: 12px; border-radius: 8px; font-size: 11px; color: #93c5fd; overflow-x: auto; white-space: pre-wrap; line-height: 1.5; border: 1px solid #27272a; margin: 0;">${domText}</pre>
                 </div>
             `;
         } else if (currentDiagTab === 'errors') {
