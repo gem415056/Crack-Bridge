@@ -87,17 +87,17 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  v2.4.0-diag
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  v2.2.4
                 </span>
               </div>
-              <p className="text-xs text-slate-400">모바일 런타임 진단 로거 & 크랙 DOM 클래스 실시간 전수 스캐너 탑재 (v2.4.0-diag)</p>
+              <p className="text-xs text-slate-400">Next.js React Crash 완벽 해결 & 깨끗한 정식 릴리즈 버전</p>
             </div>
           </div>
           <button
             onClick={handleCopyScript}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all text-white shadow-sm shadow-indigo-600/30 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all text-white shadow-sm shadow-emerald-600/30 cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? '복사됨!' : '코드 복사'}</span>
@@ -108,21 +108,21 @@ TypeError: Cannot read properties of null (reading 'appendChild')
       {/* 메인 컨텐츠 영역 */}
       <main className="max-w-4xl mx-auto px-4 py-6 w-full flex-1 flex flex-col gap-6">
         {/* 상태 알림 카드 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/60 via-slate-900 to-indigo-950/60 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-purple-950/30">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-teal-950/60 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-emerald-950/30">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 mt-0.5">
-              <Bug className="w-5 h-5" />
+            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mt-0.5">
+              <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                크랙 신규 DOM 클래스 전수 스캐너 & 모바일 플로팅 진단 로거 탑재 (v2.4.0-diag)
+                크랙 사이트 오류 완벽 해결 & 정식 릴리즈 완료
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                크랙 모바일 접속 시 화면 우하단에 <strong>[🐞 DOM 진단 & 클래스 로거]</strong> 플로팅 버튼이 상시 노출됩니다. 탭 한 번으로 크랙 사이트의 상단 헤더, 하단 폼, 에디터 및 모든 버튼의 실제 클래스 트리를 자동 수집하여 클립보드로 복사할 수 있습니다.
+                Next.js React 18 <code>removeChild</code> 충돌과 DOM 하이드레이션 오염이 근본적으로 해결되었습니다. 대화방 진입 및 확프 로딩이 정상 확인되어, 임시 진단 플로팅 도구는 완전히 삭제되고 쾌적하고 가벼운 순정 파스텔 인터페이스로 정식 복구되었습니다.
               </p>
             </div>
           </div>
