@@ -88,7 +88,7 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  v2.2.2-debug
+                  v2.2.3
                 </span>
               </div>
               <p className="text-xs text-slate-400">Next.js React Error 언팩커 & 사이트 신규 DOM 구조 자동 스캐너 탑재</p>

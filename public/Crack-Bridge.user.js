@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.1-debug
-// @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai [with Mobile Diagnostic Logger]
+// @version      2.2.3
+// @description  [v2.2.3] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai (React removeChild Crash Patch & DOM Auto-Scanner)
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -25,11 +25,50 @@
     'use strict';
 
     /* ==========================================================================
+     * [Next.js React 18/19 removeChild & insertBefore 전역 안전 보호 패치]
+     * ========================================================================== */
+    try {
+        const origRemoveChild = Node.prototype.removeChild;
+        Node.prototype.removeChild = function(child) {
+            if (child && child.parentNode !== this) {
+                if (child.parentNode) {
+                    try { return child.parentNode.removeChild(child); } catch (_) {}
+                }
+                return child;
+            }
+            return origRemoveChild.call(this, child);
+        };
+
+        const origInsertBefore = Node.prototype.insertBefore;
+        Node.prototype.insertBefore = function(newNode, referenceNode) {
+            if (referenceNode && referenceNode.parentNode !== this) {
+                if (referenceNode.parentNode) {
+                    try { return referenceNode.parentNode.insertBefore(newNode, referenceNode); } catch (_) {}
+                }
+                return this.appendChild(newNode);
+            }
+            return origInsertBefore.call(this, newNode, referenceNode);
+        };
+    } catch (_) {}
+
+    // [DOM 격리 엔진]: document.body에 직접 주입하지 않고 document.documentElement에 격리 루트를 두어 React Hydration 충돌 원천 방지
+    function getPastelHostRoot() {
+        let host = document.getElementById('pastel-native-host-root');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'pastel-native-host-root';
+            host.style.cssText = 'position: relative !important; z-index: 2147483640 !important;';
+            (document.documentElement || document.body).appendChild(host);
+        }
+        return host;
+    }
+
+    /* ==========================================================================
      * [PASTELchat 모바일 즉각 진단 & 에러 인터셉터 코어]
      * ========================================================================== */
     const _DIAG_START_TIME = Date.now();
     window.__PASTEL_DIAGNOSTICS__ = window.__PASTEL_DIAGNOSTICS__ || {
-        version: '2.2.2-debug',
+        version: '2.2.3',
         startTime: _DIAG_START_TIME,
         errors: [],
         consoleLogs: [],
@@ -1360,7 +1399,7 @@
         if (!container) {
             container = document.createElement('div');
             container.id = 'pastel-toast-container';
-            document.body.appendChild(container);
+            getPastelHostRoot().appendChild(container);
         }
         const item = document.createElement('div');
         item.className = 'ep-toast-item';
@@ -1386,7 +1425,7 @@
         if (!container) {
             container = document.createElement('div');
             container.id = 'pastel-toast-container';
-            document.body.appendChild(container);
+            getPastelHostRoot().appendChild(container);
         }
 
         loreExtPersistentToast = document.createElement("div");
@@ -1657,7 +1696,7 @@
             const overlay = document.createElement('div');
             overlay.id = 'ep-chat-drawer-overlay';
             overlay.className = 'ep-chat-drawer-overlay';
-            document.body.appendChild(overlay);
+            getPastelHostRoot().appendChild(overlay);
 
             // 2. 우측 서랍 메뉴 컨테이너
             const drawer = document.createElement('div');
@@ -1798,7 +1837,7 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(drawer);
+            getPastelHostRoot().appendChild(drawer);
 
             // 3. 에피소드 노트 모달
             const epNoteModal = document.createElement('div');
@@ -1813,7 +1852,7 @@
                     <textarea class="ep-profile-textarea" id="ep-epnote-unsent-textarea" placeholder="AI에게 전송되지 않는 자유 비공개 메모나 설정을 입력하세요..."></textarea>
                 </div>
             `;
-            document.body.appendChild(epNoteModal);
+            getPastelHostRoot().appendChild(epNoteModal);
 
             // 4. 커스텀 시스템 기호 설정 모달창
             const cmdModal = document.createElement('div');
@@ -1847,7 +1886,7 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(cmdModal);
+            getPastelHostRoot().appendChild(cmdModal);
 
             // 5. 전송 버튼 전용 홀드 프로그레스 링 SVG
             const progressRing = document.createElement('div');
@@ -1858,7 +1897,7 @@
                     <circle class="fill"/>
                 </svg>
             `;
-            document.body.appendChild(progressRing);
+            getPastelHostRoot().appendChild(progressRing);
 
             // 6. 치환자 설정 모달 (순정 100%)
             const varsModal = document.createElement('div');
@@ -1883,7 +1922,7 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(varsModal);
+            getPastelHostRoot().appendChild(varsModal);
 
             // 7. 단축어 팝업을 body에 직접 독립 추가 (잘림 원천 방지)
             const shPopup = document.createElement('div');
@@ -1892,7 +1931,7 @@
                 <div style="font-weight:bold; line-height: 1; margin-bottom:0 !important; font-size:12px; border-bottom:1px solid rgba(128,128,128,0.15); padding-bottom:8px; color: var(--text_primary);">단축어 선택</div>
                 <div id="ep-shortcut-select-list"></div>
             `;
-            document.body.appendChild(shPopup);
+            getPastelHostRoot().appendChild(shPopup);
 
             // 8. 템플릿 퀵패널을 body에 직접 독립 추가 (잘림 원천 방지)
             const tplPanel = document.createElement('div');
@@ -1914,7 +1953,7 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(tplPanel);
+            getPastelHostRoot().appendChild(tplPanel);
 
             // 9. 로어 저장소 5대 탭 메인 모달창 (crack.html 순정 100% 완전 일치)
             const loreModal = document.createElement('div');
@@ -2068,7 +2107,7 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(loreModal);
+            getPastelHostRoot().appendChild(loreModal);
 
             bindDrawerEvents();
         }
@@ -2476,26 +2515,24 @@
         fetchCrackCash();
     }
 
-    // 크랙 순정 전송 버튼을 파스텔 툴바 슬롯으로 이동 및 잔여 컨테이너 완벽 숨김
+    // 크랙 순정 전송 버튼을 파스텔 툴바 슬롯에 안전 연동 (React reconciler 충돌 방지: DOM 이동 대신 슬롯 내 전송 버튼 생성 및 클릭 위임)
     function moveNativeSendButtonToSlot() {
         const slot = document.getElementById('ep-native-send-slot');
         if (!slot) return;
 
-        const pathList = document.querySelectorAll('svg path');
-        for (const p of pathList) {
-            const d = p.getAttribute('d') || '';
-            if (d.startsWith('M18.77 11.13')) {
-                const nativeBtn = p.closest('button');
-                if (nativeBtn && !slot.contains(nativeBtn)) {
-                    nativeBtn.style.position = 'relative';
-                    nativeBtn.style.zIndex = '10';
-                    nativeBtn.style.cursor = 'pointer';
-                    nativeBtn.style.margin = '0';
-                    nativeBtn.style.transform = 'none';
-                    slot.appendChild(nativeBtn);
-                    break;
-                }
-            }
+        if (!slot.querySelector('#ep-chat-send-btn')) {
+            const sendBtn = document.createElement('button');
+            sendBtn.id = 'ep-chat-send-btn';
+            sendBtn.type = 'button';
+            sendBtn.className = 'tool-btn';
+            sendBtn.title = '전송';
+            sendBtn.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #eee; border: none; cursor: pointer; transition: background 0.2s;';
+            sendBtn.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M18.77 11.13 5.9 3.49C4.84 2.86 3.5 3.63 3.5 4.86l.66 6.01c.06.52.46.93.98.98L12 12.5l-6.86.65c-.52.05-.92.46-.98.98l-.66 6.01c-.13 1.23 1.21 2 2.27 1.37l12.87-7.64c1-.59 1-2.15.13-2.74z" fill="#333333"/>
+                </svg>
+            `;
+            slot.appendChild(sendBtn);
         }
     }
 
@@ -3115,10 +3152,22 @@
                 // 6. 에디터에 텍스트가 정상 채워졌는지 검증 후 순정 전송 버튼 클릭 및 실시간 턴수 +1 카운트
                 isInternalSending = true;
                 setTimeout(() => {
-                    const nativeBtn = slot.querySelector('button');
-                    if (nativeBtn) {
-                        nativeBtn.removeAttribute('disabled');
-                        nativeBtn.click();
+                    let nativeSendBtn = null;
+                    const pathList = document.querySelectorAll('svg path');
+                    for (const p of pathList) {
+                        const d = p.getAttribute('d') || '';
+                        if (d.startsWith('M18.77 11.13')) {
+                            const candidateBtn = p.closest('button');
+                            if (candidateBtn && candidateBtn.id !== 'ep-chat-send-btn') {
+                                nativeSendBtn = candidateBtn;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (nativeSendBtn) {
+                        nativeSendBtn.removeAttribute('disabled');
+                        nativeSendBtn.click();
                         // 전송 후 실제 유저 발화수만 정밀하게 재집계하여 동기화 (수동 +1 가산 영구 제거)
                         setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
 
@@ -6173,7 +6222,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
 
     function initPastelMobileDiagnosticTool() {
         try {
-            const rootTarget = document.body || document.documentElement;
+            const rootTarget = getPastelHostRoot();
             if (!rootTarget) return;
 
             // 1. 플로팅 버튼 생성 (없으면 주입)
@@ -6301,7 +6350,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                         <div style="padding: 14px 16px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; background: #18181b;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 16px; font-weight: bold; color: #a78bfa;">🐞 PASTELchat 진단 로거</span>
-                                <span id="pastel-diag-header-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: #27272a; color: #a1a1aa;">v2.2.2-debug</span>
+                                <span id="pastel-diag-header-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: #27272a; color: #a1a1aa;">v2.2.3</span>
                             </div>
                             <button id="pastel-diag-close-btn" style="background: transparent; border: none; color: #a1a1aa; font-size: 20px; font-weight: bold; cursor: pointer; padding: 4px 8px;">✕</button>
                         </div>
