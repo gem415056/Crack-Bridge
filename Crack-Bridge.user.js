@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.4.0-diag
-// @description  [v2.4.0-diag] PASTELchat × CRACK Bridge 모바일 런타임 진단 로거 & 신규 DOM 클래스 실시간 전수 스캐너
+// @version      2.4.1
+// @description  [v2.4.1] PASTELchat × CRACK Bridge 신규 크랙 DOM 완벽 지원, 단일 오버레이 입력창 & 실시간 런타임 진단
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -37,13 +37,13 @@
     }
 
     /* ==========================================================================
-     * [모바일 실시간 런타임 진단 & DOM 클래스 로거 엔진 (v2.4.0-diag)]
+     * [모바일 실시간 런타임 진단 & DOM 클래스 로거 엔진 (v2.4.1)]
      * ========================================================================== */
     const runtimeDiagLogs = {
         errors: [],
         network: [],
         bootTime: new Date().toISOString(),
-        version: "2.4.0-diag"
+        version: "2.4.1"
     };
 
     // 1. 에러 실시간 인터셉터 (페이지 충돌 원인 100% 캡처)
@@ -75,6 +75,23 @@
             updateDiagnosticBadge();
         } catch (_) {}
     });
+
+    // 콘솔 에러 인터셉터 (React / Next.js 에러 바운더리 로그 수집)
+    try {
+        const origConsoleError = console.error;
+        console.error = function(...args) {
+            try {
+                const msg = args.map(a => (typeof a === 'object' ? (a?.message || JSON.stringify(a)) : String(a))).join(' ');
+                runtimeDiagLogs.errors.push({
+                    type: 'console.error',
+                    message: msg.slice(0, 400),
+                    time: new Date().toLocaleTimeString()
+                });
+                updateDiagnosticBadge();
+            } catch (_) {}
+            return origConsoleError.apply(console, args);
+        };
+    } catch (_) {}
 
     // 2. 크랙 사이트 DOM & 클래스 전수 스캐너 (초정밀 딥 인스펙터)
     function generateCrackDOMDiagnosticReport() {
@@ -411,7 +428,7 @@
                 localStorage.setItem('pastel_captured_crack_chat_id', capturedCrackChatId);
             }
         } catch (_) {}
-        return origFetch.apply(this, args);
+        return origFetch.apply(window, args);
     };
 
     // [index.html 동기화 브릿지]: 데이터가 실제로 변경되었을 때만 안전하게 동기화 (과부하 방지)
@@ -895,10 +912,13 @@
         }
 
         /* 크랙 신규 및 구형 순정 입력창/에디터 박스 100% 완전 은닉 (단일 파스텔 입력창만 단독 렌더링) */
+        :has(> .chat-footer-control) > :not(.chat-footer-control),
+        .chat-footer-control ~ *,
         .bg-bg_screen.pointer-events-auto form,
         .bg-bg_screen.pointer-events-auto p.text-xs,
         .bg-bg_screen.pointer-events-auto .text-text_tertiary,
         .bg-bg_screen.pointer-events-auto > :not(.chat-footer-control),
+        .pointer-events-auto > :not(.chat-footer-control),
         form .relative.flex.w-full.flex-col,
         form [class*="relative"][class*="w-full"][class*="flex-col"],
         form .ProseMirror,
@@ -920,6 +940,8 @@
         }
 
         /* 크랙 순정 우측 그룹(모델 뱃지 + 전송버튼)이 슬롯으로 이동했을 때 가시성 보장 */
+        #ep-native-send-slot,
+        #ep-native-send-slot *,
         #ep-native-send-slot .flex.min-w-0.items-center.gap-2,
         #ep-native-send-slot button {
             display: inline-flex !important;
@@ -1092,15 +1114,20 @@
             box-sizing: border-box;
             transition: border-color 0.2s, box-shadow 0.2s;
             flex-shrink: 0;
+            pointer-events: auto !important;
+            z-index: 5 !important;
+            touch-action: manipulation !important;
+            -webkit-tap-highlight-color: transparent;
         }
         .tool-btn::after {
             content: "";
             position: absolute;
-            top: -8px;
-            bottom: -8px;
+            top: -6px;
+            bottom: -6px;
             left: -3px;
             right: -3px;
             border-radius: 50%;
+            pointer-events: none !important;
         }
         .tool-btn.active {
             border-color: #888888 !important;
@@ -2331,8 +2358,8 @@
                 if (drawer && overlay) {
                     const isOpen = drawer.classList.contains('open');
                     if (!isOpen) {
-                        const subHeader = document.querySelector('.absolute.z-docked.left-0.w-full.h-12') || document.querySelector('.h-12.px-5.flex.justify-between');
-                        const topOffset = subHeader ? subHeader.getBoundingClientRect().bottom : 104;
+                        const headerEl = document.querySelector('header') || document.querySelector('nav') || document.querySelector('.size-10.md\\:hidden')?.parentElement || document.querySelector('.absolute.z-docked.left-0.w-full.h-12') || document.querySelector('.h-12.px-5.flex.justify-between');
+                        const topOffset = headerEl ? Math.max(50, Math.round(headerEl.getBoundingClientRect().bottom)) : 56;
                         drawer.style.top = `${topOffset}px`;
                         overlay.style.top = `${topOffset}px`;
                         drawer.classList.add('open');
@@ -2345,13 +2372,17 @@
             };
         }
 
-        // 헤더 안의 순정 메뉴 버튼 컨테이너 탐색 (여러 패턴으로 확실하게 탐색)
-        const subHeader = document.querySelector('.absolute.z-docked.left-0.w-full.h-12') || document.querySelector('.h-12.px-5.flex.justify-between');
-        if (subHeader) {
-            const btnGroup = subHeader.querySelector('.flex.gap-3.items-center') || subHeader.lastElementChild;
-            if (btnGroup && !btnGroup.contains(menuBtn)) {
-                btnGroup.appendChild(menuBtn);
-            }
+        // 헤더 안의 순정 메뉴 버튼 컨테이너 탐색 (신규 및 구형 헤더 전수 지원)
+        const rightGroup = document.querySelector('.flex.items-center.justify-end.md\\:hidden') ||
+                           document.querySelector('.flex.items-center.justify-end') ||
+                           document.querySelector('.size-10.md\\:hidden')?.parentElement?.querySelector('.flex.items-center.justify-end') ||
+                           document.querySelector('.absolute.z-docked.left-0.w-full.h-12 .flex.gap-3.items-center') ||
+                           document.querySelector('.h-12.px-5.flex.justify-between .flex.gap-3.items-center') ||
+                           document.querySelector('header .flex.items-center:last-child') ||
+                           document.querySelector('header') ||
+                           document.querySelector('nav');
+        if (rightGroup && !rightGroup.contains(menuBtn)) {
+            rightGroup.appendChild(menuBtn);
         }
     }
 
@@ -2696,12 +2727,24 @@
                         <button class="tool-btn" id="ep-cmd-symbol-btn" data-open="/*" data-close="*/" type="button" title="커스텀 기호 설정" style="color: #888;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; display: block;"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg></button>
                     </div>
 
-                    <!-- 순정 모델 선택 뱃지 및 전송 버튼을 담아둘 우측 슬롯 -->
-                    <div id="ep-native-send-slot"></div>
+                    <!-- 순정 전송 버튼을 담아둘 우측 슬롯 -->
+                    <div id="ep-native-send-slot" style="margin-left: auto; display: flex; align-items: center; justify-content: flex-end; min-width: 34px; height: 34px;"></div>
                 </div>
             </div>
         `;
         crackInputWrapper.appendChild(footerControl);
+
+        // 직계 형제 요소 중 .chat-footer-control이 아닌 모든 순정 입력 요소들을 인라인 스타일로도 display: none 강제
+        Array.from(crackInputWrapper.children).forEach(child => {
+            if (child !== footerControl && !child.classList.contains('chat-footer-control')) {
+                child.style.setProperty('display', 'none', 'important');
+                child.style.setProperty('height', '0px', 'important');
+                child.style.setProperty('margin', '0px', 'important');
+                child.style.setProperty('padding', '0px', 'important');
+                child.style.setProperty('visibility', 'hidden', 'important');
+                child.style.setProperty('pointer-events', 'none', 'important');
+            }
+        });
 
         moveNativeSendButtonToSlot();
         bindInputEvents();
@@ -2711,65 +2754,49 @@
 
     // 크랙 순정 전송 버튼 정밀 탐색 엔진 (신규 파란색 플레이 버튼 & 구형 비행기 버튼 & submit 버튼 지원)
     function findNativeSendButton() {
-        const crackInputWrapper = document.querySelector('.bg-bg_screen.pointer-events-auto') || 
-                                 document.querySelector('.pointer-events-auto') ||
-                                 document.querySelector('.max-w-\[768px\].py-4') ||
-                                 document.querySelector('form')?.parentElement;
-        const nativeForm = crackInputWrapper ? (crackInputWrapper.querySelector('form') || crackInputWrapper) : document.querySelector('form');
+        const candidateBtns = Array.from(document.querySelectorAll('button')).filter(btn => {
+            if (btn.closest('.chat-footer-control')) return false;
+            if (btn.closest('#pastel-native-host-root')) return false;
+            if (btn.closest('#pastel-diag-floating-btn')) return false;
+            if (btn.closest('#pastel-diag-modal-overlay')) return false;
+            if (btn.id === 'ep-native-menu-btn') return false;
+            if (btn.id === 'ep-chat-send-btn') return false;
+            if (btn.closest('#ep-chat-right-drawer')) return false;
+            if (btn.closest('.ep-prompt-overlay')) return false;
+            if (btn.closest('#ep-lore-storage-modal-overlay')) return false;
+            if (btn.closest('#ep-comment-custom-modal-overlay')) return false;
 
-        if (nativeForm) {
-            const candidateBtns = Array.from(nativeForm.querySelectorAll('button')).filter(btn => {
-                return !btn.closest('.chat-footer-control') && 
-                       btn.id !== 'ep-chat-send-btn' && 
-                       btn.id !== 'ep-native-menu-btn' &&
-                       !btn.closest('#ep-chat-right-drawer') &&
-                       !btn.closest('.ep-prompt-overlay') &&
-                       !btn.closest('#ep-lore-storage-modal-overlay');
-            });
+            const txt = (btn.textContent || '').trim();
+            if (txt === '*' || txt === '/' || txt === '새로고침' || txt === '취소' || txt === '닫기') return false;
+            if (/하이퍼|V18|GPT|Claude|Gemini|Flash|Pro|Chat|Model|모델/i.test(txt)) return false;
 
-            // 1순위: button[type="submit"]
-            const submitBtn = candidateBtns.find(b => b.type === 'submit');
-            if (submitBtn) return submitBtn;
+            return true;
+        });
 
-            // 2순위: 전송(플레이/종이비행기) 또는 중지(네모) SVG 아이콘을 가진 버튼
-            for (const btn of candidateBtns) {
-                const svgs = btn.querySelectorAll('path, polygon, rect');
-                for (const el of svgs) {
-                    const d = (el.getAttribute('d') || el.getAttribute('points') || '').trim();
-                    if (d.startsWith('M18.77 11.13') || d.includes('18.77 11.13')) return btn;
-                    if (/^m?\s*(?:5\s+3|8\s+5|6\s+3|4\.5|3\s+22|2\.01)/i.test(d)) return btn;
-                    if (d.startsWith('M6 6') || d.includes('6h12v12H6')) return btn;
-                    if (el.tagName.toLowerCase() === 'polygon') return btn;
-                }
-            }
+        // 1순위: button[type="submit"]
+        const submitBtn = candidateBtns.find(b => b.type === 'submit');
+        if (submitBtn) return submitBtn;
 
-            // 3순위: 파란색 원형 액션 버튼 (신규 크랙 전송 버튼 외형)
-            for (const btn of candidateBtns) {
-                const txt = (btn.textContent || '').trim();
-                if (txt && !/^[\s>▶➤►]*$/.test(txt)) continue; // 하이퍼챗 등 텍스트 버튼 제외
-                const cls = (btn.className || '') + ' ' + (btn.getAttribute('style') || '');
-                if (cls.includes('rounded-full') || cls.includes('bg-primary') || cls.includes('bg-accent') || cls.includes('bg-blue')) {
-                    return btn;
-                }
-            }
-
-            // 4순위: nativeForm 내부에서 설명 텍스트 없이 SVG를 가진 맨 우측 버튼
-            for (let i = candidateBtns.length - 1; i >= 0; i--) {
-                const btn = candidateBtns[i];
-                const txt = (btn.textContent || '').trim();
-                if (txt && !/^[\s>▶➤►]*$/.test(txt)) continue;
-                if (btn.querySelector('svg')) return btn;
+        // 2순위: 플레이(▶), 화살표, 종이비행기 등 전송 아이콘 SVG를 가진 버튼
+        for (const btn of candidateBtns) {
+            const svgs = btn.querySelectorAll('path, polygon, rect');
+            for (const el of svgs) {
+                const d = (el.getAttribute('d') || el.getAttribute('points') || '').trim();
+                if (d.startsWith('M18.77 11.13') || d.includes('18.77 11.13')) return btn;
+                if (el.tagName.toLowerCase() === 'polygon') return btn;
+                if (/^m?\s*(?:5\s+3|8\s+5|6\s+3|4\.5|3\s+22|2\.01|7\s+4|12\s+2)/i.test(d)) return btn;
+                if (d.startsWith('M6 6') || d.includes('6h12v12H6')) return btn; // 중지 버튼
             }
         }
 
-        // 5순위: 전역 SVG 패스 탐색 (PASTEL UI 엄격 제외)
-        const allPaths = document.querySelectorAll('svg path, svg polygon, svg rect');
-        for (const p of allPaths) {
-            if (p.closest('.chat-footer-control') || p.closest('#ep-chat-right-drawer') || p.closest('.ep-prompt-overlay') || p.closest('#ep-lore-storage-modal-overlay')) continue;
-            const d = (p.getAttribute('d') || p.getAttribute('points') || '').trim();
-            if (d.startsWith('M18.77 11.13') || d.includes('18.77 11.13') || d.startsWith('M6 6') || d.includes('6h12v12H6') || p.tagName.toLowerCase() === 'polygon' || /^m?\s*(?:5\s+3|8\s+5|6\s+3|4\.5)/i.test(d)) {
-                const btn = p.closest('button');
-                if (btn && !btn.closest('.chat-footer-control')) return btn;
+        // 3순위: 파란색 원형 액션 버튼 (신규 크랙 전송 버튼 외형)
+        for (const btn of candidateBtns) {
+            const cls = (btn.className || '') + ' ' + (btn.getAttribute('style') || '');
+            if ((cls.includes('rounded-full') || cls.includes('rounded')) && (cls.includes('bg-primary') || cls.includes('bg-accent') || cls.includes('bg-blue') || cls.includes('rgb(0,') || cls.includes('blue'))) {
+                const r = btn.getBoundingClientRect();
+                if (r.top > window.innerHeight * 0.4) {
+                    return btn;
+                }
             }
         }
 
@@ -2786,27 +2813,6 @@
             return;
         }
 
-        // 1. 크랙 신규 버전의 우측 버튼 그룹(.flex.min-w-0.items-center.gap-2: 모델선택 + 전송버튼) 우선 탐색
-        const nativeRightGroup = document.querySelector('.bg-bg_screen.pointer-events-auto form .flex.min-w-0.items-center.gap-2') ||
-                                 document.querySelector('form .flex.min-w-0.items-center.gap-2') ||
-                                 document.querySelector('form [class*="min-w-0"][class*="items-center"]');
-
-        if (nativeRightGroup && !nativeRightGroup.closest('.chat-footer-control')) {
-            slot.appendChild(nativeRightGroup);
-            nativeRightGroup.style.display = 'flex';
-            nativeRightGroup.style.visibility = 'visible';
-            nativeRightGroup.style.opacity = '1';
-            nativeRightGroup.style.marginLeft = 'auto';
-            nativeRightGroup.querySelectorAll('button').forEach(btn => {
-                btn.style.display = 'inline-flex';
-                btn.style.visibility = 'visible';
-                btn.style.opacity = '1';
-                btn.removeAttribute('disabled');
-            });
-            return;
-        }
-
-        // 2. 단독 전송 버튼 탐색 및 슬롯 이동
         const nativeBtn = findNativeSendButton();
         if (nativeBtn && !slot.contains(nativeBtn)) {
             nativeBtn.style.position = 'relative';
