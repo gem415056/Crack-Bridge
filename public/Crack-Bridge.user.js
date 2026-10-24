@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.8
-// @description  [v2.2.8] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
+// @version      2.2.9
+// @description  [v2.2.9] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -129,11 +129,11 @@
         if (errCount > 0) {
             btn.style.background = 'linear-gradient(135deg, #881337, #e11d48) !important';
             btn.style.borderColor = '#f43f5e !important';
-            btn.innerHTML = `🚨 PASTEL 진단 (에러 ${errCount}건) [v2.2.8]`;
+            btn.innerHTML = `🚨 PASTEL 진단 (에러 ${errCount}건) [v2.2.9]`;
         } else {
             btn.style.background = 'linear-gradient(135deg, #1e1b4b, #311b92) !important';
             btn.style.borderColor = '#818cf8 !important';
-            btn.innerHTML = `🐞 PASTEL 진단 [v2.2.8]`;
+            btn.innerHTML = `🐞 PASTEL 진단 [v2.2.9]`;
         }
     }
 
@@ -145,7 +145,7 @@
         const report = [];
         report.push(`# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서`);
         report.push(`- 생성 시각: ${now}`);
-        report.push(`- 버전: 2.2.8`);
+        report.push(`- 버전: 2.2.9`);
         report.push(`- 접속 URL: ${url}`);
         report.push(`- 모바일 기기/브라우저: ${ua}`);
         report.push(``);
@@ -2690,11 +2690,6 @@
             nativeSendBtn.style.visibility = 'visible';
             nativeSendBtn.style.opacity = '1';
             slot.appendChild(nativeSendBtn);
-        }
-    }
-                </svg>
-            `;
-            slot.appendChild(sendBtn);
         }
     }
 
