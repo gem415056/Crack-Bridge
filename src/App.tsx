@@ -88,10 +88,10 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  v2.3.0
+                  v2.3.1
                 </span>
               </div>
-              <p className="text-xs text-slate-400">중복 입력창 박스 완전 소거 및 디버그 버튼 제거 정식 정식 버전</p>
+              <p className="text-xs text-slate-400">단일 파스텔 입력창 단독 렌더링 & 순정 모델 선택창·전송버튼 우측 고정 (v2.3.1)</p>
             </div>
           </div>
           <button
@@ -115,14 +115,14 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                크랙 순정 중복 입력창 완벽 소거 & 디버그 플로팅 버튼 제거 (v2.3.0)
+                단일 파스텔 입력창 단독 렌더링 & 순정 모델 선택창·전송버튼 우측 고정 (v2.3.1)
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                크랙의 순정 폼 테두리/배경을 투명화하여 파스텔 단일 입력창만 화면에 나타나도록 개선하고, 디버깅용 플로팅 버튼을 완전 제거했습니다. 하단 우측에는 크랙 순정 AI 모델 선택창과 순정 전송버튼만 깔끔하게 정열됩니다.
+                크랙 순정 하단 카드를 완전 은닉하여 단 하나의 파스텔 입력창 카드만 렌더링되도록 차단하고, 크랙 순정 AI 모델 선택 버튼(하이퍼챗 등)과 순정 전송버튼만 단일 카드 하단 우측에 상시 임베딩 고정했습니다.
               </p>
             </div>
           </div>

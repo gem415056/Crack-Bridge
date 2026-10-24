@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.0
-// @description  [v2.3.0] PASTELchat Native Input Overlay Engine for crack.wrtn.ai
+// @version      2.3.1
+// @description  [v2.3.1] PASTELchat Native Input Overlay Engine for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -587,8 +587,9 @@
         }
 
         /* 크랙 순정 폼 및 직계 자식 래퍼의 배경, 테두리, 패딩, 그림자 전수 소거 (중복 입력창 박스 완전 소거) */
+        form,
         .bg-bg_screen.pointer-events-auto form,
-        .bg-bg_screen.pointer-events-auto form > div,
+        .bg-bg_screen.pointer-events-auto form > div:not(.chat-footer-control),
         .bg-bg_screen.pointer-events-auto form .relative.flex.w-full.flex-col {
             background: transparent !important;
             border: none !important;
@@ -596,6 +597,19 @@
             padding: 0 !important;
             margin: 0 !important;
             min-height: 0 !important;
+        }
+
+        /* 크랙 순정 폼 내부 자식 래퍼 중 PASTEL 이외의 영역 가시성 완전 은닉 */
+        .bg-bg_screen.pointer-events-auto form > div:not(.chat-footer-control),
+        form > div:not(.chat-footer-control) {
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
 
         /* 크랙 순정 ProseMirror 에디터 영역 및 텍스트 래퍼 완전 은닉 */
@@ -622,6 +636,7 @@
         }
 
         /* 크랙 순정 우측 버튼 그룹 (모델 선택 뱃지 + 순정 전송 버튼) 강제 노출 및 우측 고정 */
+        #ep-native-send-slot .flex.min-w-0.items-center.gap-2,
         .bg-bg_screen.pointer-events-auto form .flex.min-w-0.items-center.gap-2 {
             display: flex !important;
             visibility: visible !important;
@@ -634,6 +649,7 @@
         }
 
         /* 모델 선택 및 순정 전송 버튼 가시성 보장 */
+        #ep-native-send-slot button,
         .bg-bg_screen.pointer-events-auto form .flex.min-w-0.items-center.gap-2 button {
             display: inline-flex !important;
             visibility: visible !important;
@@ -5978,6 +5994,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
     function checkAndInject() {
         try {
             injectBaseDOM();
+            moveNativeSendButtonToSlot();
             stripLoreOnlyFromView();
             monitorSendButtonState();
             updateDiagnosticFloatingButton();
