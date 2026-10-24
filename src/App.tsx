@@ -88,10 +88,10 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  v2.2.4
+                  v2.2.5
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Next.js React Crash 완벽 해결 & 깨끗한 정식 릴리즈 버전</p>
+              <p className="text-xs text-slate-400">오리지널 크랙 전송 버튼 & AI 모델 뱃지 복원 완료 버전</p>
             </div>
           </div>
           <button
@@ -115,14 +115,14 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                크랙 사이트 오류 완벽 해결 & 정식 릴리즈 완료
+                크랙 오리지널 전송 버튼 & AI 모델 뱃지 복원 완료
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                Next.js React 18 <code>removeChild</code> 충돌과 DOM 하이드레이션 오염이 근본적으로 해결되었습니다. 대화방 진입 및 확프 로딩이 정상 확인되어, 임시 진단 플로팅 도구는 완전히 삭제되고 쾌적하고 가벼운 순정 파스텔 인터페이스로 정식 복구되었습니다.
+                사용자가 현재 사용 중인 AI 모델(하이퍼챗 4.0, V18 등) 및 전송 버튼 아이콘을 직관적으로 확인할 수 있도록, 크랙 사이트의 오리지널 전송 버튼을 파스텔 툴바 슬롯에 직접 배치했습니다. React 18 Event Handler와 100% 연동되어 전송 시 사이트가 사용자의 클릭을 완벽히 인식합니다.
               </p>
             </div>
           </div>

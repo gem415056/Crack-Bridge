@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.4
-// @description  [v2.2.4] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai (Clean Production Release)
+// @version      2.2.5
+// @description  [v2.2.5] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai (Native Send Button & Model Indicator Restored)
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -2337,12 +2337,59 @@
         fetchCrackCash();
     }
 
-    // 크랙 순정 전송 버튼을 파스텔 툴바 슬롯에 안전 연동 (React reconciler 충돌 방지: DOM 이동 대신 슬롯 내 전송 버튼 생성 및 클릭 위임)
+    // 크랙 순정 전송 버튼(AI 모델 정보 및 원본 뱃지 포함)을 파스텔 툴바 슬롯에 직접 임베딩
     function moveNativeSendButtonToSlot() {
         const slot = document.getElementById('ep-native-send-slot');
         if (!slot) return;
 
-        if (!slot.querySelector('#ep-chat-send-btn')) {
+        let nativeSendBtn = null;
+
+        // 1순위: M18.77 11.13 전송 아이콘 SVG 경로를 가진 크랙 오리지널 버튼 탐색
+        const pathList = document.querySelectorAll('svg path');
+        for (const p of pathList) {
+            const d = p.getAttribute('d') || '';
+            if (d.startsWith('M18.77 11.13') || d.includes('18.77 11.13')) {
+                const candidateBtn = p.closest('button');
+                if (candidateBtn && candidateBtn.id !== 'ep-chat-send-btn' && candidateBtn.id !== 'ep-chat-send-btn-native') {
+                    nativeSendBtn = candidateBtn;
+                    break;
+                }
+            }
+        }
+
+        // 2순위: form 내의 submit 또는 전송 관련 버튼 탐색
+        if (!nativeSendBtn) {
+            const formBtns = document.querySelectorAll('.bg-bg_screen.pointer-events-auto form button, form button[type="submit"]');
+            for (const btn of formBtns) {
+                if (btn.id !== 'ep-chat-send-btn' && btn.id !== 'ep-chat-send-btn-native') {
+                    nativeSendBtn = btn;
+                    break;
+                }
+            }
+        }
+
+        if (nativeSendBtn) {
+            // 이미 슬롯 안에 옮겨져 있으면 가시성 및 활성화 상태만 동기화
+            if (slot.contains(nativeSendBtn)) {
+                nativeSendBtn.removeAttribute('disabled');
+                nativeSendBtn.style.display = 'inline-flex';
+                nativeSendBtn.style.visibility = 'visible';
+                nativeSendBtn.style.opacity = '1';
+                return;
+            }
+
+            // 슬롯 비우고 크랙 오리지널 전송 버튼(모델 표시 및 내부 요소 전체)을 슬롯 안으로 직접 이동!
+            slot.innerHTML = '';
+            nativeSendBtn.id = 'ep-chat-send-btn-native';
+            nativeSendBtn.style.display = 'inline-flex';
+            nativeSendBtn.style.alignItems = 'center';
+            nativeSendBtn.style.justifyContent = 'center';
+            nativeSendBtn.style.visibility = 'visible';
+            nativeSendBtn.style.opacity = '1';
+            nativeSendBtn.removeAttribute('disabled');
+            slot.appendChild(nativeSendBtn);
+        } else if (!slot.children.length) {
+            // 아직 오리지널 버튼을 탐색하지 못한 초반에만 기본 폴백 버튼 임시 표시
             const sendBtn = document.createElement('button');
             sendBtn.id = 'ep-chat-send-btn';
             sendBtn.type = 'button';
@@ -2974,22 +3021,32 @@
                 // 6. 에디터에 텍스트가 정상 채워졌는지 검증 후 순정 전송 버튼 클릭 및 실시간 턴수 +1 카운트
                 isInternalSending = true;
                 setTimeout(() => {
-                    let nativeSendBtn = null;
-                    const pathList = document.querySelectorAll('svg path');
-                    for (const p of pathList) {
-                        const d = p.getAttribute('d') || '';
-                        if (d.startsWith('M18.77 11.13')) {
-                            const candidateBtn = p.closest('button');
-                            if (candidateBtn && candidateBtn.id !== 'ep-chat-send-btn') {
-                                nativeSendBtn = candidateBtn;
-                                break;
+                    let nativeSendBtn = slot.querySelector('#ep-chat-send-btn-native') || slot.querySelector('button');
+                    if (!nativeSendBtn) {
+                        const pathList = document.querySelectorAll('svg path');
+                        for (const p of pathList) {
+                            const d = p.getAttribute('d') || '';
+                            if (d.startsWith('M18.77 11.13')) {
+                                const candidateBtn = p.closest('button');
+                                if (candidateBtn && candidateBtn.id !== 'ep-chat-send-btn') {
+                                    nativeSendBtn = candidateBtn;
+                                    break;
+                                }
                             }
                         }
                     }
 
                     if (nativeSendBtn) {
                         nativeSendBtn.removeAttribute('disabled');
+                        try {
+                            nativeSendBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+                            nativeSendBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                        } catch (_) {}
                         nativeSendBtn.click();
+                        try {
+                            nativeSendBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+                        } catch (_) {}
+
                         // 전송 후 실제 유저 발화수만 정밀하게 재집계하여 동기화 (수동 +1 가산 영구 제거)
                         setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
 
