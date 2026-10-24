@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.7-debug
-// @description  [v2.2.7-debug] PASTELchat Mobile Diagnostic Engine & Crack Native Button Inspector
+// @version      2.2.8
+// @description  [v2.2.8] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -129,11 +129,11 @@
         if (errCount > 0) {
             btn.style.background = 'linear-gradient(135deg, #881337, #e11d48) !important';
             btn.style.borderColor = '#f43f5e !important';
-            btn.innerHTML = `🚨 PASTEL 진단 (에러 ${errCount}건) [v2.2.7-debug]`;
+            btn.innerHTML = `🚨 PASTEL 진단 (에러 ${errCount}건) [v2.2.8]`;
         } else {
             btn.style.background = 'linear-gradient(135deg, #1e1b4b, #311b92) !important';
             btn.style.borderColor = '#818cf8 !important';
-            btn.innerHTML = `🐞 PASTEL 진단 [v2.2.7-debug]`;
+            btn.innerHTML = `🐞 PASTEL 진단 [v2.2.8]`;
         }
     }
 
@@ -145,7 +145,7 @@
         const report = [];
         report.push(`# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서`);
         report.push(`- 생성 시각: ${now}`);
-        report.push(`- 버전: 2.2.7-debug`);
+        report.push(`- 버전: 2.2.8`);
         report.push(`- 접속 URL: ${url}`);
         report.push(`- 모바일 기기/브라우저: ${ua}`);
         report.push(``);
@@ -784,15 +784,52 @@
             font-weight: bold !important;
         }
 
-        /* 크랙 하단 입력바 내부의 순정 폼 및 상단 잔여 래퍼 완전 소거 */
-        .bg-bg_screen.pointer-events-auto form,
+        /* 크랙 하단 입력바 내부의 순정 폼 100% 보존 & 상단 잔여 래퍼만 소거 */
         .bg-bg_screen.pointer-events-auto p.text-xs,
-        .bg-bg_screen.pointer-events-auto .text-text_tertiary,
-        .bg-bg_screen.pointer-events-auto > div:not(.chat-footer-control) {
+        .bg-bg_screen.pointer-events-auto .text-text_tertiary {
             display: none !important;
             height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
+        }
+
+        /* 크랙 순정 ProseMirror 에디터 영역 은닉 (파스텔 전용 textarea가 완벽 대체) */
+        .bg-bg_screen.pointer-events-auto form .ProseMirror,
+        .bg-bg_screen.pointer-events-auto form [contenteditable="true"] {
+            position: absolute !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            height: 1px !important;
+            width: 1px !important;
+            overflow: hidden !important;
+            z-index: -999 !important;
+        }
+
+        /* 크랙 순정 좌측 미사용 버튼 세트 (/, 추천답변 등) 은닉 */
+        .bg-bg_screen.pointer-events-auto form .flex.shrink-0.items-center.gap-2,
+        .bg-bg_screen.pointer-events-auto form button:has(svg path[d^="M12 2C6.48 2"]),
+        .bg-bg_screen.pointer-events-auto form button:has(svg path[d^="M19 13h-6v6"]) {
+            display: none !important;
+        }
+
+        /* 크랙 순정 우측 버튼 그룹 (모델 선택 뱃지 + 순정 전송 버튼) 강제 노출 및 우측 고정 */
+        .bg-bg_screen.pointer-events-auto form .flex.min-w-0.items-center.gap-2 {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            margin-left: auto !important;
+            flex-shrink: 0 !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+
+        /* 모델 선택 및 순정 전송 버튼 가시성 보장 */
+        .bg-bg_screen.pointer-events-auto form .flex.min-w-0.items-center.gap-2 button {
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
         }
 
         /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 (상단 패딩 0 강제) */
@@ -2517,6 +2554,8 @@
 
         if (document.getElementById('ep-chat-input-textarea')) return;
 
+        const nativeForm = crackInputWrapper.querySelector('form') || crackInputWrapper;
+
         const footerControl = document.createElement('div');
         footerControl.className = 'chat-footer-control';
         footerControl.innerHTML = `
@@ -2572,7 +2611,7 @@
                 </div>
             </div>
         `;
-        crackInputWrapper.appendChild(footerControl);
+        nativeForm.insertBefore(footerControl, nativeForm.firstChild);
 
         moveNativeSendButtonToSlot();
         bindInputEvents();
@@ -2580,15 +2619,33 @@
         fetchCrackCash();
     }
 
-    // 크랙 순정 모델 선택 버튼 & 전송 버튼을 파스텔 툴바 우측 고정 슬롯에 동시 임베딩
+    // 크랙 순정 모델 선택 버튼 & 전송 버튼을 파스텔 툴바 우측 고정 슬롯에 동시 임베딩 (React Form 콘텍스트 100% 보존)
     function moveNativeSendButtonToSlot() {
         const slot = document.getElementById('ep-native-send-slot');
         if (!slot) return;
 
+        const nativeRightGroup = document.querySelector('.bg-bg_screen.pointer-events-auto form .flex.min-w-0.items-center.gap-2') ||
+                                 document.querySelector('form .flex.min-w-0.items-center.gap-2');
+
+        if (nativeRightGroup) {
+            if (!slot.contains(nativeRightGroup)) {
+                slot.appendChild(nativeRightGroup);
+            }
+            nativeRightGroup.style.display = 'flex';
+            nativeRightGroup.style.visibility = 'visible';
+            nativeRightGroup.style.opacity = '1';
+            nativeRightGroup.querySelectorAll('button').forEach(btn => {
+                btn.style.display = 'inline-flex';
+                btn.style.visibility = 'visible';
+                btn.style.opacity = '1';
+                btn.removeAttribute('disabled');
+            });
+            return;
+        }
+
         let nativeSendBtn = null;
         let nativeModelBtn = null;
 
-        // 1순위: M18.77 11.13 전송 아이콘 SVG 경로를 가진 크랙 오리지널 버튼 탐색
         const pathList = document.querySelectorAll('svg path');
         for (const p of pathList) {
             const d = p.getAttribute('d') || '';
@@ -2601,18 +2658,6 @@
             }
         }
 
-        // 2순위: form 내의 submit 또는 전송 관련 버튼 탐색
-        if (!nativeSendBtn) {
-            const formBtns = document.querySelectorAll('.bg-bg_screen.pointer-events-auto form button, form button[type="submit"]');
-            for (const btn of formBtns) {
-                if (btn.id !== 'ep-chat-send-btn' && btn.id !== 'ep-chat-send-btn-native' && btn.id !== 'ep-chat-model-btn-native') {
-                    nativeSendBtn = btn;
-                    break;
-                }
-            }
-        }
-
-        // 3순위: 모델 선택 버튼/배지 탐색 (크랙 순정 폼 내부의 모델 관련 버튼)
         const nativeForm = document.querySelector('.bg-bg_screen.pointer-events-auto form') || document.querySelector('.bg-bg_screen.pointer-events-auto');
         if (nativeForm) {
             const btns = nativeForm.querySelectorAll('button');
@@ -2628,54 +2673,25 @@
             }
         }
 
-        // 모델 선택 버튼을 우측 슬롯에 임베딩
         if (nativeModelBtn && !slot.contains(nativeModelBtn)) {
             nativeModelBtn.id = 'ep-chat-model-btn-native';
             nativeModelBtn.style.display = 'inline-flex';
             nativeModelBtn.style.alignItems = 'center';
             nativeModelBtn.style.visibility = 'visible';
             nativeModelBtn.style.opacity = '1';
-            nativeModelBtn.removeAttribute('disabled');
-            slot.insertBefore(nativeModelBtn, slot.firstChild);
-        } else if (nativeModelBtn && slot.contains(nativeModelBtn)) {
-            nativeModelBtn.style.display = 'inline-flex';
-            nativeModelBtn.style.visibility = 'visible';
-            nativeModelBtn.style.opacity = '1';
+            slot.appendChild(nativeModelBtn);
         }
 
-        // 전송 버튼을 우측 슬롯에 임베딩
-        if (nativeSendBtn) {
-            if (!slot.contains(nativeSendBtn)) {
-                nativeSendBtn.id = 'ep-chat-send-btn-native';
-                nativeSendBtn.style.display = 'inline-flex';
-                nativeSendBtn.style.alignItems = 'center';
-                nativeSendBtn.style.justifyContent = 'center';
-                nativeSendBtn.style.visibility = 'visible';
-                nativeSendBtn.style.opacity = '1';
-                nativeSendBtn.removeAttribute('disabled');
-                slot.appendChild(nativeSendBtn);
-            } else {
-                nativeSendBtn.removeAttribute('disabled');
-                nativeSendBtn.style.display = 'inline-flex';
-                nativeSendBtn.style.visibility = 'visible';
-                nativeSendBtn.style.opacity = '1';
-            }
-
-            // 폴백 버튼 제거
-            const fallbackBtn = slot.querySelector('#ep-chat-send-btn');
-            if (fallbackBtn && slot.children.length > 1) {
-                fallbackBtn.remove();
-            }
-        } else if (!slot.children.length) {
-            const sendBtn = document.createElement('button');
-            sendBtn.id = 'ep-chat-send-btn';
-            sendBtn.type = 'button';
-            sendBtn.className = 'tool-btn';
-            sendBtn.title = '전송';
-            sendBtn.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #eee; border: none; cursor: pointer; transition: background 0.2s;';
-            sendBtn.innerHTML = `
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M18.77 11.13 5.9 3.49C4.84 2.86 3.5 3.63 3.5 4.86l.66 6.01c.06.52.46.93.98.98L12 12.5l-6.86.65c-.52.05-.92.46-.98.98l-.66 6.01c-.13 1.23 1.21 2 2.27 1.37l12.87-7.64c1-.59 1-2.15.13-2.74z" fill="#333333"/>
+        if (nativeSendBtn && !slot.contains(nativeSendBtn)) {
+            nativeSendBtn.id = 'ep-chat-send-btn-native';
+            nativeSendBtn.style.display = 'inline-flex';
+            nativeSendBtn.style.alignItems = 'center';
+            nativeSendBtn.style.justifyContent = 'center';
+            nativeSendBtn.style.visibility = 'visible';
+            nativeSendBtn.style.opacity = '1';
+            slot.appendChild(nativeSendBtn);
+        }
+    }
                 </svg>
             `;
             slot.appendChild(sendBtn);
@@ -3225,6 +3241,17 @@
             slot.addEventListener('click', async (e) => {
                 // 내부에서 RAG 주입 완료 후 진짜 보낼 때는 통과
                 if (isInternalSending) return;
+
+                // 클릭된 대상이 전송 버튼인지 검증 (모델 선택 버튼 등의 클릭은 100% 순정 전달)
+                const isSendBtnClick = e.target.closest('#ep-chat-send-btn-native') ||
+                                       e.target.closest('#ep-chat-send-btn') ||
+                                       e.target.closest('button:has(svg path[d*="18.77 11.13"])') ||
+                                       (e.target.tagName === 'BUTTON' && !e.target.textContent.includes('하이퍼') && !e.target.textContent.includes('V18') && !e.target.textContent.includes('GPT') && !e.target.textContent.includes('Claude') && !e.target.textContent.includes('Gemini'));
+
+                if (!isSendBtnClick) {
+                    // 모델 선택 버튼 등 순정 버튼 클릭인 경우 통과시켜 순정 팝업/이벤트가 동작하도록 보장
+                    return;
+                }
 
                 // 1. 브라우저의 조급한 0초 즉시 전송을 강제로 가로채어 멈춤
                 e.preventDefault();
