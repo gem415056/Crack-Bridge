@@ -76,10 +76,10 @@
         } catch (_) {}
     });
 
-    // 2. 크랙 사이트 DOM & 클래스 전수 스캐너
+    // 2. 크랙 사이트 DOM & 클래스 전수 스캐너 (초정밀 딥 인스펙터)
     function generateCrackDOMDiagnosticReport() {
         const report = [];
-        report.push(`# 🐞 PASTELchat × CRACK DOM 클래스 및 런타임 진단 보고서`);
+        report.push(`# 🐞 PASTELchat × CRACK DOM 클래스 및 런타임 진단 보고서 (초정밀 스캔)`);
         report.push(`- 생성 시각: ${new Date().toLocaleString()}`);
         report.push(`- 접속 URL: ${location.href}`);
         report.push(`- 사용자 기기: ${navigator.userAgent}`);
@@ -92,7 +92,7 @@
             const token = getCrackAuthToken ? getCrackAuthToken() : '';
             report.push(`- 인증 토큰: ${token ? '✅ 획득됨 (' + token.slice(0, 10) + '...)' : '❌ 미획득'}`);
         } catch (e) {
-            report.push(`- 인증 토큰 조회 에러: ${e.message}`);
+            report.push(`- 인증 토큰 에러: ${e.message}`);
         }
         try {
             report.push(`- 채팅방 ID: ${getChatId ? getChatId() : '미확인'}`);
@@ -101,116 +101,114 @@
         report.push(`- React Root: ${document.getElementById('root') ? '✅ #root' : (document.getElementById('__next') ? '✅ #__next' : '❌ 미발견')}`);
         report.push(``);
 
-        // B. 상단 헤더 영역 스캔
-        report.push(`## 2. 상단 헤더 영역 클래스 스캔`);
-        const headerCandidates = Array.from(document.querySelectorAll('header, nav, [class*="header"], [class*="nav"], div.h-12, div.h-14, div.h-16')).filter(el => !el.closest('#pastel-native-host-root') && !el.closest('#pastel-diag-floating-btn') && !el.closest('#pastel-diag-modal-overlay'));
-        if (headerCandidates.length === 0) {
-            report.push(`- 상단 헤더 후보 요소: ❌ 미발견 (크랙이 상단 레이아웃을 전면 개편했을 가능성)`);
+        // B. "메시지 보내기" 또는 "메시지" 관련 입력창 요소 역추적 (상위 부모 계층 5단계 덤프)
+        report.push(`## 2. [가장 중요!] 순정 입력창("메시지 보내기") 역추적 계층 구조`);
+        const allElements = Array.from(document.querySelectorAll('*')).filter(el => {
+            if (el.closest('#pastel-native-host-root') || el.closest('#pastel-diag-floating-btn') || el.closest('#pastel-diag-modal-overlay') || el.closest('.chat-footer-control')) return false;
+            const ph = el.getAttribute('placeholder') || '';
+            const aria = el.getAttribute('aria-label') || '';
+            const txt = el.textContent || '';
+            const isPM = el.classList?.contains('ProseMirror') || el.isContentEditable;
+            return isPM || ph.includes('메시지') || aria.includes('메시지') || (el.children.length === 0 && txt.includes('메시지'));
+        });
+
+        if (allElements.length === 0) {
+            report.push(`- 메시지 관련 텍스트/플레이스홀더 요소: ❌ 미발견 (아직 로딩 중이거나 섀도우 DOM 가능성)`);
         } else {
-            headerCandidates.slice(0, 5).forEach((h, idx) => {
-                const rect = h.getBoundingClientRect();
-                report.push(`### [헤더 후보 #${idx+1}] <${h.tagName.toLowerCase()}>`);
-                report.push(`- 위치: top=${Math.round(rect.top)}px, height=${Math.round(rect.height)}px, width=${Math.round(rect.width)}px`);
-                report.push(`- 클래스: \`${h.className || '(클래스 없음)'}\``);
-                const btns = Array.from(h.querySelectorAll('button'));
-                report.push(`- 내부 버튼 개수: ${btns.length}개`);
-                btns.forEach((b, bIdx) => {
-                    const txt = (b.textContent || '').trim().replace(/\s+/g, ' ');
-                    report.push(`  * 버튼 #${bIdx+1}: 클래스=\`${b.className || ''}\` | 텍스트="${txt.slice(0, 30)}" | title="${b.title || ''}"`);
-                });
+            allElements.slice(0, 3).forEach((target, tIdx) => {
+                report.push(`### [메시지 타겟 #${tIdx+1}] <${target.tagName.toLowerCase()}> placeholder="${target.getAttribute('placeholder') || ''}" class=\`${target.className || ''}\``);
+                report.push(`- 상위 부모 계층 (위로 6단계):`);
+                let curr = target;
+                let step = 1;
+                while (curr && curr !== document.body && curr !== document.documentElement && step <= 6) {
+                    const tag = curr.tagName.toLowerCase();
+                    const cls = curr.className && typeof curr.className === 'string' ? curr.className.replace(/\s+/g, ' ').trim() : '';
+                    const r = curr.getBoundingClientRect();
+                    report.push(`  ${step}. <${tag} class="${cls}"> [위치: top=${Math.round(r.top)}, bottom=${Math.round(r.bottom)}, h=${Math.round(r.height)}]`);
+                    curr = curr.parentElement;
+                    step++;
+                }
             });
         }
         report.push(``);
 
-        // C. 메시지/대화방 컨테이너 스캔
-        report.push(`## 3. 대화방(채팅) 컨테이너 클래스 스캔`);
-        const chatCandidates = Array.from(document.querySelectorAll('[data-chat-messages], [class*="chat"], [class*="message"], .flex-col-reverse, main, [role="main"]')).filter(el => !el.closest('#pastel-native-host-root') && !el.closest('#pastel-diag-floating-btn') && !el.closest('#pastel-diag-modal-overlay'));
-        if (chatCandidates.length === 0) {
-            report.push(`- 대화방 컨테이너 후보: ❌ 미발견`);
-        } else {
-            chatCandidates.slice(0, 4).forEach((c, idx) => {
-                const rect = c.getBoundingClientRect();
-                report.push(`### [채팅 후보 #${idx+1}] <${c.tagName.toLowerCase()}>`);
-                report.push(`- 위치: top=${Math.round(rect.top)}px, height=${Math.round(rect.height)}px`);
-                report.push(`- 클래스: \`${c.className || '(클래스 없음)'}\``);
-                report.push(`- 속성: ${Array.from(c.attributes).map(a => `${a.name}="${a.value}"`).slice(0, 5).join(' ')}`);
-                report.push(`- 직계 자식 개수: ${c.children.length}개`);
-            });
-        }
+        // C. 전체 페이지 모든 <button> 전수 목록 (텍스트 + 클래스 + SVG + 위치)
+        report.push(`## 3. 페이지 내 모든 <button> 전수 목록`);
+        const allPageButtons = Array.from(document.querySelectorAll('button')).filter(btn => {
+            return !btn.closest('#pastel-native-host-root') && !btn.closest('#pastel-diag-floating-btn') && !btn.closest('#pastel-diag-modal-overlay') && !btn.closest('.chat-footer-control');
+        });
+
+        report.push(`- 발견된 순정 버튼 개수: 총 ${allPageButtons.length}개`);
+        allPageButtons.forEach((btn, bIdx) => {
+            const txt = (btn.textContent || '').trim().replace(/\s+/g, ' ');
+            const r = btn.getBoundingClientRect();
+            const svgs = Array.from(btn.querySelectorAll('path, polygon, rect')).map(el => {
+                const d = el.getAttribute('d') || el.getAttribute('points') || '';
+                return `<${el.tagName.toLowerCase()} d="${d.slice(0, 40)}...">`;
+            }).join('; ');
+            const pCls = btn.parentElement?.className && typeof btn.parentElement.className === 'string' ? btn.parentElement.className.replace(/\s+/g, ' ').trim() : '';
+
+            report.push(`### 버튼 #${bIdx+1}: [${txt || '텍스트없음'}]`);
+            report.push(`- <button class="${btn.className || ''}" type="${btn.type}">`);
+            report.push(`- 위치: top=${Math.round(r.top)}px, left=${Math.round(r.left)}px, w=${Math.round(r.width)}px, h=${Math.round(r.height)}px`);
+            report.push(`- 부모: <${btn.parentElement?.tagName.toLowerCase() || 'none'}> class=\`${pCls}\``);
+            if (svgs) report.push(`- SVG: ${svgs}`);
+        });
         report.push(``);
 
-        // D. [가장 중요!] 하단 입력 영역 전수 스캔 및 DOM 트리 덤프
-        report.push(`## 4. 하단 입력 영역 (입력창/폼/버튼) 전수 스캔`);
-        const vh = window.innerHeight;
-
-        const forms = document.querySelectorAll('form');
-        report.push(`- 발견된 <form> 태그: ${forms.length}개`);
-        forms.forEach((f, fIdx) => {
-            const rect = f.getBoundingClientRect();
-            report.push(`### [Form #${fIdx+1}]`);
-            report.push(`- 위치: top=${Math.round(rect.top)}px, bottom=${Math.round(rect.bottom)}px, height=${Math.round(rect.height)}px`);
-            report.push(`- 클래스: \`${f.className || '(클래스 없음)'}\``);
-            report.push(`- 부모 태그 및 클래스: <${f.parentElement?.tagName.toLowerCase() || 'none'}> class=\`${f.parentElement?.className || ''}\``);
-            
-            // Form 하위 트리 덤프
-            report.push(`- Form 직계 및 하위 트리:`);
-            function dumpTree(node, depth = 1) {
-                if (!node || depth > 4) return;
+        // D. <main> 하위 전체 DOM 트리 덤프 (최대 6단계)
+        report.push(`## 4. <main> 컨테이너 전체 하위 구조 덤프`);
+        const mainEl = document.querySelector('main');
+        if (!mainEl) {
+            report.push(`- <main> 태그: ❌ 미발견`);
+        } else {
+            report.push(`- <main class="${mainEl.className || ''}">`);
+            function dumpMainTree(node, depth = 1) {
+                if (!node || depth > 6) return;
                 const indent = '  '.repeat(depth);
                 Array.from(node.children).forEach(child => {
-                    if (child.classList?.contains('chat-footer-control')) {
-                        report.push(`${indent}* <PASTELchat_FooterControl_Rendered>`);
-                        return;
-                    }
+                    if (child.closest('#pastel-native-host-root') || child.id === 'pastel-diag-floating-btn') return;
                     const tag = child.tagName.toLowerCase();
                     const cls = child.className && typeof child.className === 'string' ? child.className.replace(/\s+/g, ' ').trim() : '';
-                    let text = '';
-                    if (tag === 'button' || child.querySelector('svg') || child.children.length === 0) {
-                        text = ` [텍스트: "${child.textContent?.trim().slice(0, 20) || ''}"]`;
+                    let info = '';
+                    if (child.id) info += ` id="${child.id}"`;
+                    if (child.getAttribute('role')) info += ` role="${child.getAttribute('role')}"`;
+                    const r = child.getBoundingClientRect();
+                    info += ` (top=${Math.round(r.top)}, h=${Math.round(r.height)})`;
+                    if (child.children.length === 0 || tag === 'button' || child.querySelector('svg')) {
+                        const t = child.textContent?.trim().slice(0, 15);
+                        if (t) info += ` [txt: "${t}"]`;
                     }
-                    const svgInfo = child.querySelector('svg') ? ' [SVG 포함]' : '';
-                    report.push(`${indent}* <${tag} class="${cls}">${text}${svgInfo}`);
-                    if (child.children.length > 0 && depth < 4) {
-                        dumpTree(child, depth + 1);
+                    report.push(`${indent}* <${tag} class="${cls}"${info}>`);
+                    if (child.children.length > 0 && depth < 6) {
+                        dumpMainTree(child, depth + 1);
                     }
                 });
             }
-            dumpTree(f, 1);
-        });
-
-        // 에디터 탐색 (ProseMirror / textarea / contenteditable)
-        const editors = document.querySelectorAll('.ProseMirror, textarea, [contenteditable="true"]');
+            dumpMainTree(mainEl, 1);
+        }
         report.push(``);
-        report.push(`### 발견된 에디터 / 텍스트 입력창: ${editors.length}개`);
-        editors.forEach((ed, eIdx) => {
-            if (ed.id === 'ep-chat-input-textarea') return;
-            report.push(`- 순정 에디터 #${eIdx+1}: <${ed.tagName.toLowerCase()}> class=\`${ed.className || ''}\` contenteditable="${ed.isContentEditable}" placeholder="${ed.getAttribute('placeholder') || ''}"`);
+
+        // E. 화면 상단 고정(Fixed/Sticky) 요소 스캔
+        report.push(`## 5. 상단/하단 고정(Fixed/Sticky/Absolute) 컨테이너 목록`);
+        const fixedElements = Array.from(document.querySelectorAll('*')).filter(el => {
+            if (el.closest('#pastel-native-host-root') || el.closest('#pastel-diag-floating-btn') || el.closest('#pastel-diag-modal-overlay') || el.closest('.chat-footer-control')) return false;
+            try {
+                const s = window.getComputedStyle(el);
+                return (s.position === 'fixed' || s.position === 'sticky' || s.position === 'absolute') && (el.children.length > 0);
+            } catch (_) { return false; }
         });
 
-        // 하단 영역의 모든 버튼 목록
-        const bottomBtns = Array.from(document.querySelectorAll('button')).filter(btn => {
-            if (btn.closest('#pastel-native-host-root') || btn.closest('#pastel-diag-floating-btn') || btn.closest('#pastel-diag-modal-overlay') || btn.closest('.chat-footer-control')) return false;
-            const r = btn.getBoundingClientRect();
-            return (r.bottom >= vh - 220);
+        report.push(`- 고정 포지션 요소 개수: ${fixedElements.length}개`);
+        fixedElements.slice(0, 8).forEach((fe, idx) => {
+            const r = fe.getBoundingClientRect();
+            const s = window.getComputedStyle(fe);
+            report.push(`- [#${idx+1}] <${fe.tagName.toLowerCase()} class="${fe.className || ''}"> pos=${s.position}, top=${Math.round(r.top)}, bottom=${Math.round(r.bottom)}, h=${Math.round(r.height)}, zIndex=${s.zIndex}`);
         });
-
         report.push(``);
-        report.push(`### 하단 순정 버튼 상세 목록 (${bottomBtns.length}개)`);
-        bottomBtns.forEach((btn, bIdx) => {
-            const txt = (btn.textContent || '').trim().replace(/\s+/g, ' ');
-            const svgs = Array.from(btn.querySelectorAll('path, polygon, rect')).map(el => {
-                const d = el.getAttribute('d') || el.getAttribute('points') || '';
-                return `<${el.tagName.toLowerCase()} d="${d.slice(0, 35)}...">`;
-            }).join('; ');
-            report.push(`- 버튼 #${bIdx+1}: <button class="${btn.className || ''}" type="${btn.type}">`);
-            report.push(`  * 텍스트: "${txt}"`);
-            report.push(`  * 부모 클래스: <${btn.parentElement?.tagName.toLowerCase()}> class=\`${btn.parentElement?.className || ''}\``);
-            report.push(`  * SVG: ${svgs || '없음'}`);
-        });
 
-        // E. 실시간 에러 기록
-        report.push(``);
-        report.push(`## 5. 실시간 감지된 런타임 에러 (${runtimeDiagLogs.errors.length}건)`);
+        // F. 실시간 런타임 에러
+        report.push(`## 6. 실시간 감지된 런타임 에러 (${runtimeDiagLogs.errors.length}건)`);
         if (runtimeDiagLogs.errors.length === 0) {
             report.push(`- 감지된 런타임 예외 없음 (정상 동작 중)`);
         } else {
