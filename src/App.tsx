@@ -88,10 +88,10 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  v2.3.2
+                  v2.3.3
                 </span>
               </div>
-              <p className="text-xs text-slate-400">단일 파스텔 입력창 단독 렌더링 & 신규 전송버튼(▶) 우측 고정 (v2.3.2)</p>
+              <p className="text-xs text-slate-400">신규 크랙 클래스 완벽 대응 & 단일 파스텔 입력창 단독 렌더링 (v2.3.3)</p>
             </div>
           </div>
           <button
@@ -115,14 +115,14 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                단일 파스텔 입력창 단독 렌더링 & 신규 플레이 전송버튼(▶) 우측 고정 (v2.3.2)
+                신규 크랙 클래스 완벽 대응 & 단일 파스텔 입력창 단독 렌더링 (v2.3.3)
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                크랙 순정 하단 입력 카드를 100% 완전 은닉하여 단 하나의 파스텔 입력창만 깨끗하게 렌더링되도록 교정했습니다. 크랙의 변경된 신규 파란색 플레이(▶) 전송 버튼을 파스텔 툴바 우측 고정 슬롯으로 이동시켜, 기호 툴바 순서 꼬임·좌측 쏠림·클릭 먹통을 원천 해결했습니다.
+                크랙의 최신 변경 클래스([data-chat-messages], form, .flex.min-w-0.items-center.gap-2, DOM 격리 루트)를 100% 온전히 유지하면서, 이전 버전에서 입증된 안정적인 툴바 레이아웃 구조를 접목했습니다. 순정 입력 카드는 완벽히 은닉되고 순정 모델 선택창 및 전송 버튼만 우측 슬롯에 깔끔하게 노출됩니다.
               </p>
             </div>
           </div>
