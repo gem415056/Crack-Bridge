@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.5
-// @description  [v2.2.5] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai (Native Send Button & Model Indicator Restored)
+// @version      2.2.6
+// @description  [v2.2.6] PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai (Horizontal Scroll Toolbar & Model Selector Fixed Slot)
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -696,10 +696,42 @@
         .input-toolbar {
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
+            gap: 8px;
             width: 100%;
             user-select: none;
             margin-top: 5px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .input-toolbar-scroll-area {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            -webkit-overflow-scrolling: touch !important;
+            white-space: nowrap;
+        }
+        .input-toolbar-scroll-area::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        #ep-native-send-slot {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-shrink: 0;
+            min-width: 32px;
+            height: 32px;
+            overflow: visible;
         }
         .tool-btn {
             position: relative;
@@ -2304,28 +2336,31 @@
             <div class="input-area">
                 <textarea class="chat-textarea" id="ep-chat-input-textarea" placeholder="메시지를 입력하세요..."></textarea>
                 <div class="input-toolbar">
-                    <!-- 단축어 / 템플릿 버튼 (모듈 3에서 퀵패널 연동) -->
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <button class="tool-btn" id="ep-chat-shortcut-popup-btn" type="button" title="단축어 선택"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
-                        <button class="tool-btn" id="ep-chat-tpl-popup-btn" type="button" title="페더 템플릿"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.086 18.412A2 2 0 0 1 12.67 19H5v-7.672a2 2 0 0 1 .586-1.414L11.75 3.75a6 6 0 1 1 8.49 8.49z"/><path d="M16 8 2 22"/><path d="M17.488 15H9"/></svg></button>
-                    </div>
-                    <span class="vertical-divider"></span>
-                    <!-- 순정 구슬 단축 버튼 9종 -->
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <button class="tool-btn ep-symbol-btn" data-open="*" type="button" title="행동 지문"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open='"' type="button" title="쌍따옴표 대사"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M96 280C96 213.7 149.7 160 216 160L224 160C241.7 160 256 174.3 256 192C256 209.7 241.7 224 224 224L216 224C185.1 224 160 249.1 160 280L160 288L224 288C259.3 288 288 316.7 288 352L288 416C288 451.3 259.3 480 224 480L160 480C124.7 480 96 451.3 96 416L96 280zM352 280C352 213.7 405.7 160 472 160L480 160C497.7 160 512 174.3 512 192C512 209.7 497.7 224 480 224L472 224C441.1 224 416 249.1 416 280L416 288L480 288C515.3 288 544 316.7 544 352L544 416C544 451.3 515.3 480 480 480L416 480C380.7 480 352 451.3 352 416L352 280z"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="'" type="button" title="홑따옴표 독백"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M352 160C369.7 160 384 174.3 384 192C384 209.7 369.7 224 352 224L344 224C313.1 224 288 249.1 288 280L288 288L352 288C387.3 288 416 316.7 416 352L416 416C416 451.3 387.3 480 352 480L288 480C252.7 480 224 451.3 224 416L224 280C224 213.7 277.7 160 344 160L352 160z"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="…" type="button" title="말줄임표"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="—" type="button" title="엠대쉬"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M5 12h14"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="&#96;" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="[" data-close="]" type="button" title="대괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M16 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-3"/><path d="M8 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="(OOC：" data-close=")" type="button" title="OOC"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg></button>
-                        <button class="tool-btn" id="ep-cmd-symbol-btn" data-open="/*" data-close="*/" type="button" title="커스텀 기호 설정" style="color: #888;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; display: block;"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg></button>
+                    <!-- 좌측 구슬 및 단축어/템플릿 버튼 스크롤 영역 -->
+                    <div class="input-toolbar-scroll-area">
+                        <!-- 단축어 / 템플릿 버튼 -->
+                        <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+                            <button class="tool-btn" id="ep-chat-shortcut-popup-btn" type="button" title="단축어 선택"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+                            <button class="tool-btn" id="ep-chat-tpl-popup-btn" type="button" title="페더 템플릿"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.086 18.412A2 2 0 0 1 12.67 19H5v-7.672a2 2 0 0 1 .586-1.414L11.75 3.75a6 6 0 1 1 8.49 8.49z"/><path d="M16 8 2 22"/><path d="M17.488 15H9"/></svg></button>
+                        </div>
+                        <span class="vertical-divider"></span>
+                        <!-- 순정 구슬 단축 버튼 9종 -->
+                        <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+                            <button class="tool-btn ep-symbol-btn" data-open="*" type="button" title="행동 지문"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open='"' type="button" title="쌍따옴표 대사"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M96 280C96 213.7 149.7 160 216 160L224 160C241.7 160 256 174.3 256 192C256 209.7 241.7 224 224 224L216 224C185.1 224 160 249.1 160 280L160 288L224 288C259.3 288 288 316.7 288 352L288 416C288 451.3 259.3 480 224 480L160 480C124.7 480 96 451.3 96 416L96 280zM352 280C352 213.7 405.7 160 472 160L480 160C497.7 160 512 174.3 512 192C512 209.7 497.7 224 480 224L472 224C441.1 224 416 249.1 416 280L416 288L480 288C515.3 288 544 316.7 544 352L544 416C544 451.3 515.3 480 480 480L416 480C380.7 480 352 451.3 352 416L352 280z"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="'" type="button" title="홑따옴표 독백"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M352 160C369.7 160 384 174.3 384 192C384 209.7 369.7 224 352 224L344 224C313.1 224 288 249.1 288 280L288 288L352 288C387.3 288 416 316.7 416 352L416 416C416 451.3 387.3 480 352 480L288 480C252.7 480 224 451.3 224 416L224 280C224 213.7 277.7 160 344 160L352 160z"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="…" type="button" title="말줄임표"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="—" type="button" title="엠대쉬"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M5 12h14"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="&#96;" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="[" data-close="]" type="button" title="대괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M16 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-3"/><path d="M8 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3"/></svg></button>
+                            <button class="tool-btn ep-symbol-btn" data-open="(OOC：" data-close=")" type="button" title="OOC"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg></button>
+                            <button class="tool-btn" id="ep-cmd-symbol-btn" data-open="/*" data-close="*/" type="button" title="커스텀 기호 설정" style="color: #888;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; display: block;"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg></button>
+                        </div>
                     </div>
 
-                    <!-- 순정 전송 버튼을 담아둘 우측 슬롯 -->
-                    <div id="ep-native-send-slot" style="margin-left: auto; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;"></div>
+                    <!-- 순정 모델 선택 뱃지 및 전송 버튼을 담아둘 우측 고정 슬롯 -->
+                    <div id="ep-native-send-slot"></div>
                 </div>
             </div>
         `;
@@ -2337,12 +2372,13 @@
         fetchCrackCash();
     }
 
-    // 크랙 순정 전송 버튼(AI 모델 정보 및 원본 뱃지 포함)을 파스텔 툴바 슬롯에 직접 임베딩
+    // 크랙 순정 모델 선택 버튼 & 전송 버튼을 파스텔 툴바 우측 고정 슬롯에 동시 임베딩
     function moveNativeSendButtonToSlot() {
         const slot = document.getElementById('ep-native-send-slot');
         if (!slot) return;
 
         let nativeSendBtn = null;
+        let nativeModelBtn = null;
 
         // 1순위: M18.77 11.13 전송 아이콘 SVG 경로를 가진 크랙 오리지널 버튼 탐색
         const pathList = document.querySelectorAll('svg path');
@@ -2361,35 +2397,68 @@
         if (!nativeSendBtn) {
             const formBtns = document.querySelectorAll('.bg-bg_screen.pointer-events-auto form button, form button[type="submit"]');
             for (const btn of formBtns) {
-                if (btn.id !== 'ep-chat-send-btn' && btn.id !== 'ep-chat-send-btn-native') {
+                if (btn.id !== 'ep-chat-send-btn' && btn.id !== 'ep-chat-send-btn-native' && btn.id !== 'ep-chat-model-btn-native') {
                     nativeSendBtn = btn;
                     break;
                 }
             }
         }
 
+        // 3순위: 모델 선택 버튼/배지 탐색 (크랙 순정 폼 내부의 모델 관련 버튼)
+        const nativeForm = document.querySelector('.bg-bg_screen.pointer-events-auto form') || document.querySelector('.bg-bg_screen.pointer-events-auto');
+        if (nativeForm) {
+            const btns = nativeForm.querySelectorAll('button');
+            for (const b of btns) {
+                if (b === nativeSendBtn || b.id === 'ep-chat-send-btn' || b.id === 'ep-chat-send-btn-native' || b.id === 'ep-chat-model-btn-native') continue;
+                if (slot.contains(b)) continue;
+                const txt = (b.textContent || '').trim();
+                const hasModelKeywords = /하이퍼|V18|GPT|Claude|Gemini|Flash|Pro|Chat|Model|모델/i.test(txt);
+                if (hasModelKeywords || b.querySelector('svg')) {
+                    nativeModelBtn = b;
+                    break;
+                }
+            }
+        }
+
+        // 모델 선택 버튼을 우측 슬롯에 임베딩
+        if (nativeModelBtn && !slot.contains(nativeModelBtn)) {
+            nativeModelBtn.id = 'ep-chat-model-btn-native';
+            nativeModelBtn.style.display = 'inline-flex';
+            nativeModelBtn.style.alignItems = 'center';
+            nativeModelBtn.style.visibility = 'visible';
+            nativeModelBtn.style.opacity = '1';
+            nativeModelBtn.removeAttribute('disabled');
+            slot.insertBefore(nativeModelBtn, slot.firstChild);
+        } else if (nativeModelBtn && slot.contains(nativeModelBtn)) {
+            nativeModelBtn.style.display = 'inline-flex';
+            nativeModelBtn.style.visibility = 'visible';
+            nativeModelBtn.style.opacity = '1';
+        }
+
+        // 전송 버튼을 우측 슬롯에 임베딩
         if (nativeSendBtn) {
-            // 이미 슬롯 안에 옮겨져 있으면 가시성 및 활성화 상태만 동기화
-            if (slot.contains(nativeSendBtn)) {
+            if (!slot.contains(nativeSendBtn)) {
+                nativeSendBtn.id = 'ep-chat-send-btn-native';
+                nativeSendBtn.style.display = 'inline-flex';
+                nativeSendBtn.style.alignItems = 'center';
+                nativeSendBtn.style.justifyContent = 'center';
+                nativeSendBtn.style.visibility = 'visible';
+                nativeSendBtn.style.opacity = '1';
+                nativeSendBtn.removeAttribute('disabled');
+                slot.appendChild(nativeSendBtn);
+            } else {
                 nativeSendBtn.removeAttribute('disabled');
                 nativeSendBtn.style.display = 'inline-flex';
                 nativeSendBtn.style.visibility = 'visible';
                 nativeSendBtn.style.opacity = '1';
-                return;
             }
 
-            // 슬롯 비우고 크랙 오리지널 전송 버튼(모델 표시 및 내부 요소 전체)을 슬롯 안으로 직접 이동!
-            slot.innerHTML = '';
-            nativeSendBtn.id = 'ep-chat-send-btn-native';
-            nativeSendBtn.style.display = 'inline-flex';
-            nativeSendBtn.style.alignItems = 'center';
-            nativeSendBtn.style.justifyContent = 'center';
-            nativeSendBtn.style.visibility = 'visible';
-            nativeSendBtn.style.opacity = '1';
-            nativeSendBtn.removeAttribute('disabled');
-            slot.appendChild(nativeSendBtn);
+            // 폴백 버튼 제거
+            const fallbackBtn = slot.querySelector('#ep-chat-send-btn');
+            if (fallbackBtn && slot.children.length > 1) {
+                fallbackBtn.remove();
+            }
         } else if (!slot.children.length) {
-            // 아직 오리지널 버튼을 탐색하지 못한 초반에만 기본 폴백 버튼 임시 표시
             const sendBtn = document.createElement('button');
             sendBtn.id = 'ep-chat-send-btn';
             sendBtn.type = 'button';

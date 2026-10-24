@@ -88,10 +88,10 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  v2.2.5
+                  v2.2.6
                 </span>
               </div>
-              <p className="text-xs text-slate-400">오리지널 크랙 전송 버튼 & AI 모델 뱃지 복원 완료 버전</p>
+              <p className="text-xs text-slate-400">가로 스크롤 툴바 & AI 모델 선택 / 전송 버튼 우측 고정 슬롯 지원 버전</p>
             </div>
           </div>
           <button
@@ -115,14 +115,14 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                크랙 오리지널 전송 버튼 & AI 모델 뱃지 복원 완료
+                가로 스크롤 툴바 & AI 모델 선택 / 전송 버튼 우측 고정 슬롯 배치 완료
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                사용자가 현재 사용 중인 AI 모델(하이퍼챗 4.0, V18 등) 및 전송 버튼 아이콘을 직관적으로 확인할 수 있도록, 크랙 사이트의 오리지널 전송 버튼을 파스텔 툴바 슬롯에 직접 배치했습니다. React 18 Event Handler와 100% 연동되어 전송 시 사이트가 사용자의 클릭을 완벽히 인식합니다.
+                모바일 화면에서 10개의 구슬 버튼이 영역을 모두 차지해 모델 선택 버튼과 전송 버튼이 잘리거나 밀리던 현상을 해결했습니다. 좌측 구슬/단축어 툴바를 스크롤바 없는 깔끔한 가로 스크롤 영역으로 지정하고, 우측에 AI 모델 선택 버튼과 순정 전송 버튼을 선명하게 항상 고정 노출합니다.
               </p>
             </div>
           </div>
