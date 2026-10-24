@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.3
-// @description  [v2.3.3] PASTELchat Native Input Overlay Engine for crack.wrtn.ai (신규 클래스 호환 & 단일 파스텔 입력창 단독 렌더링)
+// @version      2.4.0-diag
+// @description  [v2.4.0-diag] PASTELchat × CRACK Bridge 모바일 런타임 진단 로거 & 신규 DOM 클래스 실시간 전수 스캐너
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
 // @match        https://pastel-chat-coral.vercel.app/*
@@ -35,6 +35,354 @@
         }
         return host;
     }
+
+    /* ==========================================================================
+     * [모바일 실시간 런타임 진단 & DOM 클래스 로거 엔진 (v2.4.0-diag)]
+     * ========================================================================== */
+    const runtimeDiagLogs = {
+        errors: [],
+        network: [],
+        bootTime: new Date().toISOString(),
+        version: "2.4.0-diag"
+    };
+
+    // 1. 에러 실시간 인터셉터 (페이지 충돌 원인 100% 캡처)
+    window.addEventListener('error', (e) => {
+        try {
+            const errInfo = {
+                type: 'window.onerror',
+                message: e.message || String(e),
+                filename: e.filename || '',
+                lineno: e.lineno || 0,
+                colno: e.colno || 0,
+                stack: e.error?.stack || '',
+                time: new Date().toLocaleTimeString()
+            };
+            runtimeDiagLogs.errors.push(errInfo);
+            updateDiagnosticBadge();
+        } catch (_) {}
+    });
+
+    window.addEventListener('unhandledrejection', (e) => {
+        try {
+            const errInfo = {
+                type: 'unhandledrejection',
+                message: e.reason?.message || String(e.reason || e),
+                stack: e.reason?.stack || '',
+                time: new Date().toLocaleTimeString()
+            };
+            runtimeDiagLogs.errors.push(errInfo);
+            updateDiagnosticBadge();
+        } catch (_) {}
+    });
+
+    // 2. 크랙 사이트 DOM & 클래스 전수 스캐너
+    function generateCrackDOMDiagnosticReport() {
+        const report = [];
+        report.push(`# 🐞 PASTELchat × CRACK DOM 클래스 및 런타임 진단 보고서`);
+        report.push(`- 생성 시각: ${new Date().toLocaleString()}`);
+        report.push(`- 접속 URL: ${location.href}`);
+        report.push(`- 사용자 기기: ${navigator.userAgent}`);
+        report.push(`- 뷰포트 크기: ${window.innerWidth} x ${window.innerHeight} (DPR: ${window.devicePixelRatio || 1})`);
+        report.push(``);
+
+        // A. 인증 및 기본 상태
+        report.push(`## 1. 계정 및 기본 식별 상태`);
+        try {
+            const token = getCrackAuthToken ? getCrackAuthToken() : '';
+            report.push(`- 인증 토큰: ${token ? '✅ 획득됨 (' + token.slice(0, 10) + '...)' : '❌ 미획득'}`);
+        } catch (e) {
+            report.push(`- 인증 토큰 조회 에러: ${e.message}`);
+        }
+        try {
+            report.push(`- 채팅방 ID: ${getChatId ? getChatId() : '미확인'}`);
+        } catch (_) {}
+        report.push(`- 페이지 타이틀: ${document.title}`);
+        report.push(`- React Root: ${document.getElementById('root') ? '✅ #root' : (document.getElementById('__next') ? '✅ #__next' : '❌ 미발견')}`);
+        report.push(``);
+
+        // B. 상단 헤더 영역 스캔
+        report.push(`## 2. 상단 헤더 영역 클래스 스캔`);
+        const headerCandidates = Array.from(document.querySelectorAll('header, nav, [class*="header"], [class*="nav"], div.h-12, div.h-14, div.h-16')).filter(el => !el.closest('#pastel-native-host-root') && !el.closest('#pastel-diag-floating-btn') && !el.closest('#pastel-diag-modal-overlay'));
+        if (headerCandidates.length === 0) {
+            report.push(`- 상단 헤더 후보 요소: ❌ 미발견 (크랙이 상단 레이아웃을 전면 개편했을 가능성)`);
+        } else {
+            headerCandidates.slice(0, 5).forEach((h, idx) => {
+                const rect = h.getBoundingClientRect();
+                report.push(`### [헤더 후보 #${idx+1}] <${h.tagName.toLowerCase()}>`);
+                report.push(`- 위치: top=${Math.round(rect.top)}px, height=${Math.round(rect.height)}px, width=${Math.round(rect.width)}px`);
+                report.push(`- 클래스: \`${h.className || '(클래스 없음)'}\``);
+                const btns = Array.from(h.querySelectorAll('button'));
+                report.push(`- 내부 버튼 개수: ${btns.length}개`);
+                btns.forEach((b, bIdx) => {
+                    const txt = (b.textContent || '').trim().replace(/\s+/g, ' ');
+                    report.push(`  * 버튼 #${bIdx+1}: 클래스=\`${b.className || ''}\` | 텍스트="${txt.slice(0, 30)}" | title="${b.title || ''}"`);
+                });
+            });
+        }
+        report.push(``);
+
+        // C. 메시지/대화방 컨테이너 스캔
+        report.push(`## 3. 대화방(채팅) 컨테이너 클래스 스캔`);
+        const chatCandidates = Array.from(document.querySelectorAll('[data-chat-messages], [class*="chat"], [class*="message"], .flex-col-reverse, main, [role="main"]')).filter(el => !el.closest('#pastel-native-host-root') && !el.closest('#pastel-diag-floating-btn') && !el.closest('#pastel-diag-modal-overlay'));
+        if (chatCandidates.length === 0) {
+            report.push(`- 대화방 컨테이너 후보: ❌ 미발견`);
+        } else {
+            chatCandidates.slice(0, 4).forEach((c, idx) => {
+                const rect = c.getBoundingClientRect();
+                report.push(`### [채팅 후보 #${idx+1}] <${c.tagName.toLowerCase()}>`);
+                report.push(`- 위치: top=${Math.round(rect.top)}px, height=${Math.round(rect.height)}px`);
+                report.push(`- 클래스: \`${c.className || '(클래스 없음)'}\``);
+                report.push(`- 속성: ${Array.from(c.attributes).map(a => `${a.name}="${a.value}"`).slice(0, 5).join(' ')}`);
+                report.push(`- 직계 자식 개수: ${c.children.length}개`);
+            });
+        }
+        report.push(``);
+
+        // D. [가장 중요!] 하단 입력 영역 전수 스캔 및 DOM 트리 덤프
+        report.push(`## 4. 하단 입력 영역 (입력창/폼/버튼) 전수 스캔`);
+        const vh = window.innerHeight;
+
+        const forms = document.querySelectorAll('form');
+        report.push(`- 발견된 <form> 태그: ${forms.length}개`);
+        forms.forEach((f, fIdx) => {
+            const rect = f.getBoundingClientRect();
+            report.push(`### [Form #${fIdx+1}]`);
+            report.push(`- 위치: top=${Math.round(rect.top)}px, bottom=${Math.round(rect.bottom)}px, height=${Math.round(rect.height)}px`);
+            report.push(`- 클래스: \`${f.className || '(클래스 없음)'}\``);
+            report.push(`- 부모 태그 및 클래스: <${f.parentElement?.tagName.toLowerCase() || 'none'}> class=\`${f.parentElement?.className || ''}\``);
+            
+            // Form 하위 트리 덤프
+            report.push(`- Form 직계 및 하위 트리:`);
+            function dumpTree(node, depth = 1) {
+                if (!node || depth > 4) return;
+                const indent = '  '.repeat(depth);
+                Array.from(node.children).forEach(child => {
+                    if (child.classList?.contains('chat-footer-control')) {
+                        report.push(`${indent}* <PASTELchat_FooterControl_Rendered>`);
+                        return;
+                    }
+                    const tag = child.tagName.toLowerCase();
+                    const cls = child.className && typeof child.className === 'string' ? child.className.replace(/\s+/g, ' ').trim() : '';
+                    let text = '';
+                    if (tag === 'button' || child.querySelector('svg') || child.children.length === 0) {
+                        text = ` [텍스트: "${child.textContent?.trim().slice(0, 20) || ''}"]`;
+                    }
+                    const svgInfo = child.querySelector('svg') ? ' [SVG 포함]' : '';
+                    report.push(`${indent}* <${tag} class="${cls}">${text}${svgInfo}`);
+                    if (child.children.length > 0 && depth < 4) {
+                        dumpTree(child, depth + 1);
+                    }
+                });
+            }
+            dumpTree(f, 1);
+        });
+
+        // 에디터 탐색 (ProseMirror / textarea / contenteditable)
+        const editors = document.querySelectorAll('.ProseMirror, textarea, [contenteditable="true"]');
+        report.push(``);
+        report.push(`### 발견된 에디터 / 텍스트 입력창: ${editors.length}개`);
+        editors.forEach((ed, eIdx) => {
+            if (ed.id === 'ep-chat-input-textarea') return;
+            report.push(`- 순정 에디터 #${eIdx+1}: <${ed.tagName.toLowerCase()}> class=\`${ed.className || ''}\` contenteditable="${ed.isContentEditable}" placeholder="${ed.getAttribute('placeholder') || ''}"`);
+        });
+
+        // 하단 영역의 모든 버튼 목록
+        const bottomBtns = Array.from(document.querySelectorAll('button')).filter(btn => {
+            if (btn.closest('#pastel-native-host-root') || btn.closest('#pastel-diag-floating-btn') || btn.closest('#pastel-diag-modal-overlay') || btn.closest('.chat-footer-control')) return false;
+            const r = btn.getBoundingClientRect();
+            return (r.bottom >= vh - 220);
+        });
+
+        report.push(``);
+        report.push(`### 하단 순정 버튼 상세 목록 (${bottomBtns.length}개)`);
+        bottomBtns.forEach((btn, bIdx) => {
+            const txt = (btn.textContent || '').trim().replace(/\s+/g, ' ');
+            const svgs = Array.from(btn.querySelectorAll('path, polygon, rect')).map(el => {
+                const d = el.getAttribute('d') || el.getAttribute('points') || '';
+                return `<${el.tagName.toLowerCase()} d="${d.slice(0, 35)}...">`;
+            }).join('; ');
+            report.push(`- 버튼 #${bIdx+1}: <button class="${btn.className || ''}" type="${btn.type}">`);
+            report.push(`  * 텍스트: "${txt}"`);
+            report.push(`  * 부모 클래스: <${btn.parentElement?.tagName.toLowerCase()}> class=\`${btn.parentElement?.className || ''}\``);
+            report.push(`  * SVG: ${svgs || '없음'}`);
+        });
+
+        // E. 실시간 에러 기록
+        report.push(``);
+        report.push(`## 5. 실시간 감지된 런타임 에러 (${runtimeDiagLogs.errors.length}건)`);
+        if (runtimeDiagLogs.errors.length === 0) {
+            report.push(`- 감지된 런타임 예외 없음 (정상 동작 중)`);
+        } else {
+            runtimeDiagLogs.errors.forEach((err, errIdx) => {
+                report.push(`### [에러 #${errIdx+1}] (${err.time}) [${err.type}]`);
+                report.push(`- 메시지: ${err.message}`);
+                if (err.filename) report.push(`- 위치: ${err.filename}:${err.lineno}:${err.colno}`);
+                if (err.stack) {
+                    report.push(`\`\`\``);
+                    report.push(err.stack.slice(0, 400));
+                    report.push(`\`\`\``);
+                }
+            });
+        }
+
+        report.push(``);
+        report.push(`=== 진단 보고서 끝 ===`);
+        return report.join('\n');
+    }
+
+    // 3. 플로팅 진단 버튼 및 팝업 시트 렌더러
+    function updateDiagnosticBadge() {
+        const btn = document.getElementById('pastel-diag-floating-btn');
+        if (!btn) return;
+        const errCount = runtimeDiagLogs.errors.length;
+        if (errCount > 0) {
+            btn.innerHTML = `<span style="display:inline-flex; width:8px; height:8px; border-radius:50%; background:#ef4444; margin-right:4px;"></span><span>🚨 에러 ${errCount}건 (클래스 진단)</span>`;
+            btn.style.borderColor = '#ef4444';
+            btn.style.boxShadow = '0 4px 16px rgba(239, 68, 68, 0.5)';
+        } else {
+            btn.innerHTML = `<span>🐞 DOM 진단 & 클래스 로거</span>`;
+            btn.style.borderColor = '#a855f7';
+            btn.style.boxShadow = '0 4px 16px rgba(168, 85, 247, 0.35)';
+        }
+    }
+
+    function injectDiagnosticUI() {
+        if (document.getElementById('pastel-diag-floating-btn')) return;
+
+        // 플로팅 버튼
+        const floatBtn = document.createElement('button');
+        floatBtn.id = 'pastel-diag-floating-btn';
+        floatBtn.type = 'button';
+        floatBtn.style.cssText = `
+            position: fixed !important;
+            bottom: 75px !important;
+            right: 12px !important;
+            z-index: 2147483647 !important;
+            padding: 8px 14px !important;
+            border-radius: 9999px !important;
+            background: rgba(15, 23, 42, 0.95) !important;
+            color: #ffffff !important;
+            border: 1.5px solid #a855f7 !important;
+            box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35) !important;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            backdrop-filter: blur(8px) !important;
+            -webkit-backdrop-filter: blur(8px) !important;
+            user-select: none !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        `;
+        floatBtn.innerHTML = `<span>🐞 DOM 진단 & 클래스 로거</span>`;
+        floatBtn.onclick = (e) => {
+            e.stopPropagation();
+            toggleDiagnosticModal();
+        };
+
+        // 모달 오버레이
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'pastel-diag-modal-overlay';
+        modalOverlay.style.cssText = `
+            display: none;
+            position: fixed !important;
+            inset: 0 !important;
+            background: rgba(0, 0, 0, 0.75) !important;
+            z-index: 2147483647 !important;
+            align-items: flex-end !important;
+            justify-content: center !important;
+            backdrop-filter: blur(4px) !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        `;
+
+        modalOverlay.innerHTML = `
+            <div style="width: 100%; max-width: 650px; max-height: 85vh; background: #0f172a; border-top: 1.5px solid #334155; border-radius: 20px 20px 0 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 -8px 32px rgba(0,0,0,0.5);">
+                <!-- 상단 바 -->
+                <div style="padding: 12px 16px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; background: #0b0f19;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 14px; font-weight: bold; color: #c084fc;">🐞 PASTELchat 모바일 DOM & 클래스 진단 콘솔</span>
+                    </div>
+                    <button id="pastel-diag-close-btn" style="background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; padding: 4px 8px;">✕</button>
+                </div>
+
+                <!-- 빠른 복사 액션 버튼 -->
+                <div style="padding: 10px 16px; background: #1e1b4b; border-bottom: 1px solid #312e81; display: flex; gap: 8px;">
+                    <button id="pastel-diag-copy-btn" style="flex: 1; padding: 10px 16px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-weight: bold; font-size: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(99,102,241,0.4);">
+                        <span>📋 진단 로그 & 클래스 전체 복사 (채팅에 붙여넣기)</span>
+                    </button>
+                    <button id="pastel-diag-refresh-btn" style="padding: 10px 14px; border-radius: 10px; background: #334155; color: #e2e8f0; font-weight: bold; font-size: 12px; border: none; cursor: pointer;">
+                        🔄 새로고침
+                    </button>
+                </div>
+
+                <!-- 텍스트 영역 프리뷰 -->
+                <div style="flex: 1; overflow-y: auto; padding: 12px 16px;">
+                    <textarea id="pastel-diag-textarea" readonly style="width: 100%; height: 350px; background: #020617; color: #e2e8f0; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 11px; line-height: 1.5; resize: none; outline: none; box-sizing: border-box; white-space: pre;"></textarea>
+                </div>
+            </div>
+        `;
+
+        modalOverlay.onclick = (e) => {
+            if (e.target === modalOverlay) toggleDiagnosticModal(false);
+        };
+
+        (document.documentElement || document.body).appendChild(floatBtn);
+        (document.documentElement || document.body).appendChild(modalOverlay);
+
+        const closeBtn = document.getElementById('pastel-diag-close-btn');
+        if (closeBtn) closeBtn.onclick = () => toggleDiagnosticModal(false);
+
+        const copyBtn = document.getElementById('pastel-diag-copy-btn');
+        if (copyBtn) {
+            copyBtn.onclick = () => {
+                const ta = document.getElementById('pastel-diag-textarea');
+                if (!ta) return;
+                const text = ta.value;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        copyBtn.textContent = '✅ 복사 완료! (채팅에 그대로 붙여넣어 주세요)';
+                        setTimeout(() => {
+                            copyBtn.textContent = '📋 진단 로그 & 클래스 전체 복사 (채팅에 붙여넣기)';
+                        }, 3000);
+                    });
+                } else {
+                    ta.select();
+                    document.execCommand('copy');
+                    copyBtn.textContent = '✅ 복사 완료!';
+                    setTimeout(() => {
+                        copyBtn.textContent = '📋 진단 로그 & 클래스 전체 복사 (채팅에 붙여넣기)';
+                    }, 3000);
+                }
+            };
+        }
+
+        const refreshBtn = document.getElementById('pastel-diag-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.onclick = () => {
+                const ta = document.getElementById('pastel-diag-textarea');
+                if (ta) ta.value = generateCrackDOMDiagnosticReport();
+            };
+        }
+
+        updateDiagnosticBadge();
+    }
+
+    function toggleDiagnosticModal(force) {
+        const overlay = document.getElementById('pastel-diag-modal-overlay');
+        const ta = document.getElementById('pastel-diag-textarea');
+        if (!overlay) return;
+
+        const isVisible = (force !== undefined) ? force : (overlay.style.display === 'flex');
+        if (!isVisible) {
+            if (ta) ta.value = generateCrackDOMDiagnosticReport();
+            overlay.style.display = 'flex';
+        } else {
+            overlay.style.display = 'none';
+        }
+    }
+
 
     // [크랙 네트워크 실시간 인터셉터]: 브라우저가 통신할 때 사용하는 진짜 토큰과 ChatId 자동 낚아채기
     let capturedCrackToken = '';
@@ -5955,6 +6303,10 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
     }
 
     function checkAndInject() {
+        try {
+            injectDiagnosticUI();
+        } catch (_) {}
+
         try {
             injectBaseDOM();
             moveNativeSendButtonToSlot();

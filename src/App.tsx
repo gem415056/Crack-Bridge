@@ -87,11 +87,11 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  v2.3.3
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  v2.4.0-diag
                 </span>
               </div>
-              <p className="text-xs text-slate-400">신규 크랙 클래스 완벽 대응 & 단일 파스텔 입력창 단독 렌더링 (v2.3.3)</p>
+              <p className="text-xs text-slate-400">모바일 런타임 진단 로거 & 크랙 DOM 클래스 실시간 전수 스캐너 탑재 (v2.4.0-diag)</p>
             </div>
           </div>
           <button
@@ -108,21 +108,21 @@ TypeError: Cannot read properties of null (reading 'appendChild')
       {/* 메인 컨텐츠 영역 */}
       <main className="max-w-4xl mx-auto px-4 py-6 w-full flex-1 flex flex-col gap-6">
         {/* 상태 알림 카드 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-purple-950/60 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-indigo-950/30">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/60 via-slate-900 to-indigo-950/60 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-purple-950/30">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mt-0.5">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="p-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 mt-0.5">
+              <Bug className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                신규 크랙 클래스 완벽 대응 & 단일 파스텔 입력창 단독 렌더링 (v2.3.3)
+                크랙 신규 DOM 클래스 전수 스캐너 & 모바일 플로팅 진단 로거 탑재 (v2.4.0-diag)
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                크랙의 최신 변경 클래스([data-chat-messages], form, .flex.min-w-0.items-center.gap-2, DOM 격리 루트)를 100% 온전히 유지하면서, 이전 버전에서 입증된 안정적인 툴바 레이아웃 구조를 접목했습니다. 순정 입력 카드는 완벽히 은닉되고 순정 모델 선택창 및 전송 버튼만 우측 슬롯에 깔끔하게 노출됩니다.
+                크랙 모바일 접속 시 화면 우하단에 <strong>[🐞 DOM 진단 & 클래스 로거]</strong> 플로팅 버튼이 상시 노출됩니다. 탭 한 번으로 크랙 사이트의 상단 헤더, 하단 폼, 에디터 및 모든 버튼의 실제 클래스 트리를 자동 수집하여 클립보드로 복사할 수 있습니다.
               </p>
             </div>
           </div>
