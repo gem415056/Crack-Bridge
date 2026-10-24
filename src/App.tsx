@@ -87,11 +87,11 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  v2.3.1
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  v2.3.2
                 </span>
               </div>
-              <p className="text-xs text-slate-400">단일 파스텔 입력창 단독 렌더링 & 순정 모델 선택창·전송버튼 우측 고정 (v2.3.1)</p>
+              <p className="text-xs text-slate-400">단일 파스텔 입력창 단독 렌더링 & 신규 전송버튼(▶) 우측 고정 (v2.3.2)</p>
             </div>
           </div>
           <button
@@ -110,19 +110,19 @@ TypeError: Cannot read properties of null (reading 'appendChild')
         {/* 상태 알림 카드 */}
         <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-purple-950/60 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-indigo-950/30">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 mt-0.5">
+            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mt-0.5">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                단일 파스텔 입력창 단독 렌더링 & 순정 모델 선택창·전송버튼 우측 고정 (v2.3.1)
+                단일 파스텔 입력창 단독 렌더링 & 신규 플레이 전송버튼(▶) 우측 고정 (v2.3.2)
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
-                크랙 순정 하단 카드를 완전 은닉하여 단 하나의 파스텔 입력창 카드만 렌더링되도록 차단하고, 크랙 순정 AI 모델 선택 버튼(하이퍼챗 등)과 순정 전송버튼만 단일 카드 하단 우측에 상시 임베딩 고정했습니다.
+                크랙 순정 하단 입력 카드를 100% 완전 은닉하여 단 하나의 파스텔 입력창만 깨끗하게 렌더링되도록 교정했습니다. 크랙의 변경된 신규 파란색 플레이(▶) 전송 버튼을 파스텔 툴바 우측 고정 슬롯으로 이동시켜, 기호 툴바 순서 꼬임·좌측 쏠림·클릭 먹통을 원천 해결했습니다.
               </p>
             </div>
           </div>
