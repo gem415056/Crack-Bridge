@@ -4,23 +4,10 @@
 // @version      2.2.9
 // @description  [v2.2.9] PASTELchat Native UI Engine & CRACK Bridge (Permanent Native Send Button, 8 Shortcut Beads All-at-once, Custom Bead First)
 // @author       PASTELchat
-// @match        *://crack.wrtn.ai/*
-// @match        *://*.wrtn.ai/*
-// @match        *://wrtn.ai/*
-// @match        *://pastel-chat-coral.vercel.app/*
-// @match        *://*/*index.html*
-// @match        file:///*index.html*
-// @match        file:///*
-// @match        *://*/*
-// @include      *://crack.wrtn.ai/*
-// @include      *://*.wrtn.ai/*
-// @include      *://wrtn.ai/*
-// @include      https://crack.wrtn.ai/*
-// @include      https://*.wrtn.ai/*
-// @include      https://wrtn.ai/*
-// @include      *index.html*
-// @include      file://*index.html*
-// @include      *
+// @match        https://crack.wrtn.ai/*
+// @match        https://*.wrtn.ai/*
+// @match        https://wrtn.ai/*
+// @match        https://pastel-chat-coral.vercel.app/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -28,7 +15,7 @@
 // @require      https://cdn.jsdelivr.net/npm/dexie@4.2.1/dist/dexie.min.js
 // @require      https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js
 // @require      https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check-compat.js
-// @run-at       document-end
+// @run-at       document-start
 // ==/UserScript==
 
 (function() {
@@ -2550,7 +2537,7 @@
                         <!-- (4) 엠대쉬 (—) -->
                         <button class="tool-btn ep-symbol-btn" data-open="—" type="button" title="엠대쉬"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M5 12h14"/></svg></button>
                         <!-- (5) 백틱 -->
-                        <button class="tool-btn ep-symbol-btn" data-open="&#96;" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
+                        <button class="tool-btn ep-symbol-btn" data-open="\`" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
                         <!-- (6) 괄호 () -->
                         <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/></svg></button>
                         <!-- (7) 대괄호 [] -->
