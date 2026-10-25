@@ -1,9 +1,13 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.9
-// @description  [v2.2.9] PASTELchat Native UI Engine & CRACK Bridge (Permanent Native Send Button, 8 Shortcut Beads All-at-once, Custom Bead First)
+// @version      2.3.0
+// @description  [v2.3.0] PASTELchat Native UI Engine & CRACK Bridge (Permanent Native Send Button, 8 Shortcut Beads All-at-once, Custom Bead First)
 // @author       PASTELchat
+// @match        *://crack.wrtn.ai/*
+// @match        *://*.wrtn.ai/*
+// @match        *://wrtn.ai/*
+// @match        *://pastel-chat-coral.vercel.app/*
 // @match        https://crack.wrtn.ai/*
 // @match        https://*.wrtn.ai/*
 // @match        https://wrtn.ai/*
@@ -21,7 +25,9 @@
 (function() {
     'use strict';
 
-    console.log('%c[PASTELchat × CRACK Bridge] Bootstrapping Engine v2.2.9...', 'background: #7c3aed; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;');
+    try {
+
+    console.log('%c[PASTELchat × CRACK Bridge] Bootstrapping Engine v2.3.0...', 'background: #7c3aed; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;');
 
     // [모바일 실시간 런타임 진단 저장소]
     const pastelRuntimeLogs = {
@@ -77,14 +83,20 @@
 
     // [DOM 격리 엔진]: document.body에 직접 주입하지 않고 document.documentElement에 격리 루트를 두어 React Hydration 충돌 원천 방지
     function getPastelHostRoot() {
-        let host = document.getElementById('pastel-native-host-root');
-        if (!host) {
-            host = document.createElement('div');
-            host.id = 'pastel-native-host-root';
-            host.style.cssText = 'position: relative !important; z-index: 2147483640 !important;';
-            (document.documentElement || document.body).appendChild(host);
+        try {
+            let host = document.getElementById('pastel-native-host-root');
+            if (!host) {
+                const target = document.body || document.documentElement;
+                if (!target) return null;
+                host = document.createElement('div');
+                host.id = 'pastel-native-host-root';
+                host.style.cssText = 'position: relative !important; z-index: 2147483640 !important;';
+                target.appendChild(host);
+            }
+            return host;
+        } catch (_) {
+            return null;
         }
-        return host;
     }
 
     // [크랙 네트워크 실시간 인터셉터]: 브라우저가 통신할 때 사용하는 진짜 토큰과 ChatId 자동 낚아채기
@@ -1393,11 +1405,35 @@
         }
     `;
 
-    // CSS 주입
-    const styleEl = document.createElement('style');
-    styleEl.type = 'text/css';
-    styleEl.innerHTML = PASTEL_CSS;
-    (document.head || document.documentElement).appendChild(styleEl);
+    // CSS 안전 주입 (GM_addStyle 우선 사용 및 document-start 시점 DOM 미형성 환경 무중단 대응)
+    function injectPastelStyles() {
+        if (typeof GM_addStyle === 'function') {
+            try {
+                GM_addStyle(PASTEL_CSS);
+                return;
+            } catch (_) {}
+        }
+        const tryAppend = () => {
+            const target = document.head || document.documentElement || document.body;
+            if (target) {
+                if (!document.getElementById('pastel-bridge-styles')) {
+                    const styleEl = document.createElement('style');
+                    styleEl.id = 'pastel-bridge-styles';
+                    styleEl.type = 'text/css';
+                    styleEl.textContent = PASTEL_CSS;
+                    target.appendChild(styleEl);
+                }
+                return true;
+            }
+            return false;
+        };
+        if (!tryAppend()) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', tryAppend, { once: true });
+            }
+        }
+    }
+    try { injectPastelStyles(); } catch (_) {}
 
     /* ==========================================================================
      * 2. 토스트 헬퍼 함수 (crack.html 순정 100% 완전 일치)
@@ -2315,10 +2351,13 @@
         } catch (_) {}
 
         // 2. 쿠키 access_token 탐색
-        const cookieMatch = document.cookie.match(/(?:^|; )access_token=([^;]*)/);
-        if (cookieMatch && cookieMatch[1]) {
-            return decodeURIComponent(cookieMatch[1]).replace(/^["']|["']$/g, '').trim();
-        }
+        try {
+            const cookieStr = typeof document !== 'undefined' ? (document.cookie || '') : '';
+            const cookieMatch = cookieStr.match(/(?:^|; )access_token=([^;]*)/);
+            if (cookieMatch && cookieMatch[1]) {
+                return decodeURIComponent(cookieMatch[1]).replace(/^["']|["']$/g, '').trim();
+            }
+        } catch (_) {}
 
         // 3. 네트워크 인터셉터 캡처 토큰 폴백
         if (capturedCrackToken && capturedCrackToken.trim()) return capturedCrackToken.trim();
@@ -2455,29 +2494,34 @@
     }
 
     function unblockPastelToolbar() {
-        const toolbar = document.querySelector('.input-toolbar');
-        if (!toolbar) return;
-        const rect = toolbar.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
+        try {
+            const toolbar = document.querySelector('.input-toolbar');
+            if (!toolbar) return;
+            const rect = toolbar.getBoundingClientRect();
+            if (!rect || rect.width === 0 || rect.height === 0) return;
 
-        const points = [
-            { x: rect.left + 15, y: rect.top + rect.height / 2 },
-            { x: rect.left + 50, y: rect.top + rect.height / 2 },
-            { x: rect.left + 90, y: rect.top + rect.height / 2 },
-            { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
-            { x: rect.right - 20, y: rect.top + rect.height / 2 },
-            { x: rect.right - 60, y: rect.top + rect.height / 2 }
-        ];
+            const points = [
+                { x: rect.left + 15, y: rect.top + rect.height / 2 },
+                { x: rect.left + 50, y: rect.top + rect.height / 2 },
+                { x: rect.left + 90, y: rect.top + rect.height / 2 },
+                { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+                { x: rect.right - 20, y: rect.top + rect.height / 2 },
+                { x: rect.right - 60, y: rect.top + rect.height / 2 }
+            ];
 
-        points.forEach(pt => {
-            let hit = document.elementFromPoint(pt.x, pt.y);
-            let depth = 0;
-            while (hit && hit !== document.body && hit !== document.documentElement && !hit.closest('.chat-footer-control') && depth < 5) {
-                hit.style.setProperty('pointer-events', 'none', 'important');
-                depth++;
-                hit = document.elementFromPoint(pt.x, pt.y);
-            }
-        });
+            points.forEach(pt => {
+                if (isNaN(pt.x) || isNaN(pt.y) || typeof document.elementFromPoint !== 'function') return;
+                let hit = document.elementFromPoint(pt.x, pt.y);
+                let depth = 0;
+                while (hit && hit !== document.body && hit !== document.documentElement && !hit.closest('.chat-footer-control') && depth < 5) {
+                    if (hit.style && typeof hit.style.setProperty === 'function') {
+                        hit.style.setProperty('pointer-events', 'none', 'important');
+                    }
+                    depth++;
+                    hit = document.elementFromPoint(pt.x, pt.y);
+                }
+            });
+        } catch (_) {}
     }
 
     function injectCustomInputBox() {
@@ -2532,18 +2576,18 @@
                         <button class="tool-btn" id="ep-cmd-symbol-btn" data-open="/*" data-close="*/" type="button" title="커스텀 기호 (탭: 입력, 길게 누르기: 설정)" style="color: #888;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 13px; height: 13px; display: block;"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg></button>
                         <!-- (2) 행동 지문 (*) -->
                         <button class="tool-btn ep-symbol-btn" data-open="*" type="button" title="행동 지문"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/></svg></button>
-                        <!-- (3) 말줄임표 (…) -->
-                        <button class="tool-btn ep-symbol-btn" data-open="…" type="button" title="말줄임표"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
-                        <!-- (4) 엠대쉬 (—) -->
-                        <button class="tool-btn ep-symbol-btn" data-open="—" type="button" title="엠대쉬"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M5 12h14"/></svg></button>
+                        <!-- (3) 물결표 (~) -->
+                        <button class="tool-btn ep-symbol-btn" data-open="~" type="button" title="물결표"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M4 12c2.5-3 4-3 6.5 0s4 3 6.5 0 4-3 6.5 0"/></svg></button>
+                        <!-- (4) 밑줄 (_) -->
+                        <button class="tool-btn ep-symbol-btn" data-open="_" type="button" title="밑줄"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M5 19h14"/></svg></button>
                         <!-- (5) 백틱 -->
-                        <button class="tool-btn ep-symbol-btn" data-open="\`" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
-                        <!-- (6) 괄호 () -->
-                        <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/></svg></button>
+                        <button class="tool-btn ep-symbol-btn" data-open="&#96;" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M14 7l-4 5"/></svg></button>
+                        <!-- (6) 소괄호 () -->
+                        <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="소괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/></svg></button>
                         <!-- (7) 대괄호 [] -->
                         <button class="tool-btn ep-symbol-btn" data-open="[" data-close="]" type="button" title="대괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M16 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-3"/><path d="M8 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3"/></svg></button>
-                        <!-- (8) OOC -->
-                        <button class="tool-btn ep-symbol-btn" data-open="(OOC：" data-close=")" type="button" title="OOC"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg></button>
+                        <!-- (8) 중괄호 {} -->
+                        <button class="tool-btn ep-symbol-btn" data-open="{" data-close="}" type="button" title="중괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M7 4a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2"/><path d="M17 4a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2"/></svg></button>
                     </div>
                     <!-- 4. 우측 슬롯: 순정 전송 버튼 전용 영역 (상시 100% 노출 보장) -->
                     <div id="ep-native-send-slot" style="margin-left: auto; display: flex; align-items: center; justify-content: center; gap: 0; flex-shrink: 0; min-width: 28px; width: 28px; height: 28px; z-index: 2147483604; pointer-events: auto;"></div>
@@ -2619,56 +2663,60 @@
 
     // [전송 버튼 영구 유지 엔진]: React 재렌더링 시에도 절대 사라지지 않고 100% 상시 노출 & 동작 보장
     function maintainCrackNativeInput() {
-        unblockPastelToolbar();
+        try {
+            unblockPastelToolbar();
 
-        const slot = document.getElementById('ep-native-send-slot');
-        if (!slot) return;
+            const slot = document.getElementById('ep-native-send-slot');
+            if (!slot) return;
 
-        slot.style.setProperty('display', 'flex', 'important');
-        slot.style.setProperty('align-items', 'center', 'important');
-        slot.style.setProperty('justify-content', 'center', 'important');
-        slot.style.setProperty('margin-left', 'auto', 'important');
-        slot.style.setProperty('gap', '0', 'important');
-        slot.style.setProperty('visibility', 'visible', 'important');
-        slot.style.setProperty('opacity', '1', 'important');
-        slot.style.setProperty('pointer-events', 'auto', 'important');
-        slot.style.setProperty('z-index', '2147483604', 'important');
-        slot.style.setProperty('min-width', '28px', 'important');
-        slot.style.setProperty('width', '28px', 'important');
-        slot.style.setProperty('height', '28px', 'important');
+            slot.style.setProperty('display', 'flex', 'important');
+            slot.style.setProperty('align-items', 'center', 'important');
+            slot.style.setProperty('justify-content', 'center', 'important');
+            slot.style.setProperty('margin-left', 'auto', 'important');
+            slot.style.setProperty('gap', '0', 'important');
+            slot.style.setProperty('visibility', 'visible', 'important');
+            slot.style.setProperty('opacity', '1', 'important');
+            slot.style.setProperty('pointer-events', 'auto', 'important');
+            slot.style.setProperty('z-index', '2147483604', 'important');
+            slot.style.setProperty('min-width', '28px', 'important');
+            slot.style.setProperty('width', '28px', 'important');
+            slot.style.setProperty('height', '28px', 'important');
 
-        // 1. 크랙 원본 순정 전송 버튼 탐색 (슬롯 외부)
-        const nativeSendBtn = findCrackNativeSendButton();
+            // 1. 크랙 원본 순정 전송 버튼 탐색 (슬롯 외부)
+            const nativeSendBtn = findCrackNativeSendButton();
 
-        // 2. 순정 원본 버튼은 숨김 처리하여 2중 노출 방지 (React DOM 트리는 훼손하지 않고 유지)
-        if (nativeSendBtn && !slot.contains(nativeSendBtn)) {
-            nativeSendBtn.style.setProperty('display', 'none', 'important');
-            nativeSendBtn.style.setProperty('opacity', '0', 'important');
-            nativeSendBtn.style.setProperty('pointer-events', 'none', 'important');
-        }
+            // 2. 순정 원본 버튼은 시각적으로 숨김 처리 (React 이벤트 트리 유지: opacity 0, pointer-events none, 1px)
+            if (nativeSendBtn && !slot.contains(nativeSendBtn)) {
+                nativeSendBtn.style.setProperty('opacity', '0', 'important');
+                nativeSendBtn.style.setProperty('position', 'absolute', 'important');
+                nativeSendBtn.style.setProperty('pointer-events', 'none', 'important');
+                nativeSendBtn.style.setProperty('width', '1px', 'important');
+                nativeSendBtn.style.setProperty('height', '1px', 'important');
+                nativeSendBtn.style.setProperty('overflow', 'hidden', 'important');
+            }
 
-        // 3. 슬롯 내 전송 버튼 상시 영구 유지 (React가 어떤 작업을 해도 슬롯 내 버튼은 절대 삭제되지 않음)
-        let slotBtn = slot.querySelector('button#ep-native-send-proxy-btn');
-        if (!slotBtn) {
-            slot.innerHTML = '';
-            slotBtn = document.createElement('button');
-            slotBtn.id = 'ep-native-send-proxy-btn';
-            slotBtn.type = 'button';
-            slotBtn.title = '전송';
-            slotBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" style="pointer-events: none; width: 14px; height: 14px; display: block;">
-                    <path fill="#ffffff" d="M18.77 11.13 5.75 3.39c-.93-.56-2.1.18-2.01 1.26l.72 8.65c.02.26.22.46.48.48l7.06.59c.27.02.27.42 0 .44l-7.06.59c-.26.02-.46.22-.48.48l-.72 8.65c-.09 1.08 1.08 1.82 2.01 1.26l13.02-7.74c.97-.58.97-1.98 0-2.56z"/>
-                </svg>
-            `;
-            slot.appendChild(slotBtn);
-        }
+            // 3. 슬롯 내 전송 버튼 상시 영구 유지 (React가 어떤 작업을 해도 슬롯 내 버튼은 절대 삭제되지 않음)
+            let slotBtn = slot.querySelector('button#ep-native-send-proxy-btn');
+            if (!slotBtn) {
+                slot.innerHTML = '';
+                slotBtn = document.createElement('button');
+                slotBtn.id = 'ep-native-send-proxy-btn';
+                slotBtn.type = 'button';
+                slotBtn.title = '전송';
+                slotBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" style="pointer-events: none; width: 14px; height: 14px; display: block;">
+                        <path fill="#ffffff" d="M18.77 11.13 5.75 3.39c-.93-.56-2.1.18-2.01 1.26l.72 8.65c.02.26.22.46.48.48l7.06.59c.27.02.27.42 0 .44l-7.06.59c-.26.02-.46.22-.48.48l-.72 8.65c-.09 1.08 1.08 1.82 2.01 1.26l13.02-7.74c.97-.58.97-1.98 0-2.56z"/>
+                    </svg>
+                `;
+                slot.appendChild(slotBtn);
+            }
 
-        // 4. 슬롯 버튼 스타일 강제 보장 (Crack purple #7c3aed, 원형, 28px, 흰색 아이콘)
-        slotBtn.style.setProperty('display', 'inline-flex', 'important');
-        slotBtn.style.setProperty('align-items', 'center', 'important');
-        slotBtn.style.setProperty('justify-content', 'center', 'important');
-        slotBtn.style.setProperty('visibility', 'visible', 'important');
-        slotBtn.style.setProperty('opacity', '1', 'important');
+            // 4. 슬롯 버튼 스타일 강제 보장 (Crack purple #7c3aed, 원형, 28px, 흰색 아이콘)
+            slotBtn.style.setProperty('display', 'inline-flex', 'important');
+            slotBtn.style.setProperty('align-items', 'center', 'important');
+            slotBtn.style.setProperty('justify-content', 'center', 'important');
+            slotBtn.style.setProperty('visibility', 'visible', 'important');
+            slotBtn.style.setProperty('opacity', '1', 'important');
         slotBtn.style.setProperty('pointer-events', 'auto', 'important');
         slotBtn.style.setProperty('cursor', 'pointer', 'important');
         slotBtn.style.setProperty('position', 'relative', 'important');
@@ -2698,6 +2746,9 @@
 
         // 5. 버튼 전송 액션 바인딩
         bindSendActionToButton(slotBtn);
+        } catch (err) {
+            console.warn("[PASTEL] maintainCrackNativeInput error:", err);
+        }
     }
 
     // 구버전 및 레거시 호출 호환성 보장
@@ -4034,14 +4085,17 @@ ${pastelRuntimeLogs.requests.slice(-8).map(r => `- [${r.time}] ${r.url}`).join('
      * ========================================================================== */
     let loreDb = null;
     try {
-        loreDb = new Dexie("lore-injector");
-        loreDb.version(9).stores({
-            entries: "++id, name, type, packName, project, rootId, isCurrentArc, createdTurn, updatedTurn, lastMentionedTurn, eventTurn, sceneId, arcId, realTimestamp, *entities, *subjects, *objects, *locations, *promises, *triggers",
-            packs: "name, entryCount, project",
-            snapshots: "++id, packName, timestamp, type",
-            embeddings: "++id, entryId, packName, model, field, sourceHash, entryUpdatedAt, schemaVersion, &[entryId+field]",
-            workingMemory: "url", encounters: "++id, &[char1+char2], lastSeenTurn", entryVersions: "++id, entryId, ts, turn"
-        });
+        const DexieClass = (typeof Dexie !== 'undefined') ? Dexie : ((typeof unsafeWindow !== 'undefined' && unsafeWindow.Dexie) ? unsafeWindow.Dexie : (typeof window !== 'undefined' ? window.Dexie : null));
+        if (DexieClass) {
+            loreDb = new DexieClass("lore-injector");
+            loreDb.version(9).stores({
+                entries: "++id, name, type, packName, project, rootId, isCurrentArc, createdTurn, updatedTurn, lastMentionedTurn, eventTurn, sceneId, arcId, realTimestamp, *entities, *subjects, *objects, *locations, *promises, *triggers",
+                packs: "name, entryCount, project",
+                snapshots: "++id, packName, timestamp, type",
+                embeddings: "++id, entryId, packName, model, field, sourceHash, entryUpdatedAt, schemaVersion, &[entryId+field]",
+                workingMemory: "url", encounters: "++id, &[char1+char2], lastSeenTurn", entryVersions: "++id, entryId, ts, turn"
+            });
+        }
     } catch (e) { console.warn("Dexie 로어 DB 초기화:", e); }
 
     const C = {
@@ -6215,7 +6269,10 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
 
     // 2. App Check 초기화 (구형 v3 배제, ReCaptchaEnterpriseProvider 전용 activate)
     async function initializeFirebaseDynamically() {
-        const firebaseScript = localStorage.getItem('pastel_api_firebase') || '';
+        let firebaseScript = '';
+        try {
+            firebaseScript = (typeof localStorage !== 'undefined' ? localStorage.getItem('pastel_api_firebase') : '') || '';
+        } catch (_) {}
         if (!firebaseScript.trim()) return null;
 
         try {
@@ -6373,10 +6430,6 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
     /* ==========================================================================
      * 6. SPA 라우팅 대응 상시 주입 감시 (무거운 감시 없음 / 가벼운 확인 루프)
      * ========================================================================== */
-    try { initializeFirebaseDynamically(); } catch (_) {}
-    try { fetchRealTimeExchangeRate(); } catch (_) {}
-    try { fetchCrackCash(); } catch (_) {}
-
     let lastCheckedChatId = '';
     let isAiGeneratingState = false;
 
@@ -6489,17 +6542,26 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
     }
 
     // DOM 준비 완료 시 즉시 초기화
+    function bootstrapPastelServices() {
+        try { checkAndInject(); } catch (_) {}
+        try { initializeFirebaseDynamically(); } catch (_) {}
+        try { fetchRealTimeExchangeRate(); } catch (_) {}
+        try { fetchCrackCash(); } catch (_) {}
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAndInject();
-        });
+        document.addEventListener('DOMContentLoaded', bootstrapPastelServices);
     } else {
-        checkAndInject();
+        bootstrapPastelServices();
     }
 
     // SPA 라우팅 및 동적 렌더링 대비 상시 감시 루프
     setInterval(() => {
-        checkAndInject();
+        try { checkAndInject(); } catch (_) {}
     }, 500);
+
+    } catch (fatalGlobalErr) {
+        console.error('[PASTEL Bridge] Fatal initialization error:', fatalGlobalErr);
+    }
 
 })();
