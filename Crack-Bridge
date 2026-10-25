@@ -2577,8 +2577,7 @@
 
         try {
             // ProseMirror 단락 구조에 맞게 줄바꿈을 <p> 태그들로 변환 주입
-            const paragraphs = text.split('
-').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+            const paragraphs = text.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
             editor.innerHTML = paragraphs;
 
             editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: text }));
@@ -2886,14 +2885,12 @@ ${pastelRuntimeLogs.errors.length === 0 ? '- 발생한 런타임 오류 없음 (
 \`\`\`
 ${e.stack || '(스택 없음)'}
 \`\`\`
-`).join('
-')}
+`).join('\n')}
 
 ## 3. 네트워크 및 인증 상태
 - capturedCrackToken: ${capturedCrackToken ? 'O' : 'X'}
 - 최근 통신:
-${pastelRuntimeLogs.requests.slice(-8).map(r => `- [${r.time}] ${r.url}`).join('
-')}
+${pastelRuntimeLogs.requests.slice(-8).map(r => `- [${r.time}] ${r.url}`).join('\n')}
 
 === 보고서 끝 ===`;
 
