@@ -88,7 +88,7 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  v2.2.8
+                  v2.2.9
                 </span>
               </div>
               <p className="text-xs text-slate-400">전송 버튼 상시 영구 노출 & 단축구슬 8종 일괄 노출 (커스텀 구슬 맨 앞 배치)</p>

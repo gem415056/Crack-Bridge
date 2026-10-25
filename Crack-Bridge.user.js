@@ -1,16 +1,26 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.8
-// @description  [v2.2.8] PASTELchat Native UI Engine & CRACK Bridge (Permanent Native Send Button, 8 Shortcut Beads All-at-once, Custom Bead First)
+// @version      2.2.9
+// @description  [v2.2.9] PASTELchat Native UI Engine & CRACK Bridge (Permanent Native Send Button, 8 Shortcut Beads All-at-once, Custom Bead First)
 // @author       PASTELchat
-// @match        https://crack.wrtn.ai/*
-// @match        https://pastel-chat-coral.vercel.app/*
+// @match        *://crack.wrtn.ai/*
+// @match        *://*.wrtn.ai/*
+// @match        *://wrtn.ai/*
+// @match        *://pastel-chat-coral.vercel.app/*
 // @match        *://*/*index.html*
 // @match        file:///*index.html*
 // @match        file:///*
+// @match        *://*/*
+// @include      *://crack.wrtn.ai/*
+// @include      *://*.wrtn.ai/*
+// @include      *://wrtn.ai/*
+// @include      https://crack.wrtn.ai/*
+// @include      https://*.wrtn.ai/*
+// @include      https://wrtn.ai/*
 // @include      *index.html*
 // @include      file://*index.html*
+// @include      *
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -18,11 +28,13 @@
 // @require      https://cdn.jsdelivr.net/npm/dexie@4.2.1/dist/dexie.min.js
 // @require      https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js
 // @require      https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check-compat.js
-// @run-at       document-idle
+// @run-at       document-end
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    console.log('%c[PASTELchat × CRACK Bridge] Bootstrapping Engine v2.2.9...', 'background: #7c3aed; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;');
 
     // [모바일 실시간 런타임 진단 저장소]
     const pastelRuntimeLogs = {
@@ -76,33 +88,6 @@
         });
     } catch (_) {}
 
-
-
-    /* ==========================================================================
-     * [Next.js React 18/19 removeChild & insertBefore 전역 안전 보호 패치]
-     * ========================================================================== */
-    try {
-        const origRemoveChild = Node.prototype.removeChild;
-        Node.prototype.removeChild = function(child) {
-            if (child && child.parentNode !== this) {
-                // React가 슬롯(#ep-native-send-slot)으로 이동된 요소를 지우려 할 때, 슬롯에서 노드가 삭제되지 않도록 보호
-                return child;
-            }
-            return origRemoveChild.call(this, child);
-        };
-
-        const origInsertBefore = Node.prototype.insertBefore;
-        Node.prototype.insertBefore = function(newNode, referenceNode) {
-            if (referenceNode && referenceNode.parentNode !== this) {
-                if (referenceNode.parentNode) {
-                    try { return referenceNode.parentNode.insertBefore(newNode, referenceNode); } catch (_) {}
-                }
-                return this.appendChild(newNode);
-            }
-            return origInsertBefore.call(this, newNode, referenceNode);
-        };
-    } catch (_) {}
-
     // [DOM 격리 엔진]: document.body에 직접 주입하지 않고 document.documentElement에 격리 루트를 두어 React Hydration 충돌 원천 방지
     function getPastelHostRoot() {
         let host = document.getElementById('pastel-native-host-root');
@@ -148,8 +133,9 @@
         return origFetch.apply(window, args);
     };
 
-    // [index.html 동기화 브릿지]: 데이터가 실제로 변경되었을 때만 안전하게 동기화 (과부하 방지)
-    if (!location.hostname.includes('wrtn.ai')) {
+    // [index.html 동기화 브릿지]: 파스텔 컴패니언 웹앱(pastel-chat-coral 등) 접속 시에만 데이터 동기화 수행
+    const isCompanionApp = location.hostname.includes('pastel-chat') || location.hostname.includes('pastelchat');
+    if (isCompanionApp && !location.hostname.includes('wrtn.ai')) {
         let lastShStr = '', lastTplStr = '', lastFldStr = '';
         const syncPastelchatDataToGM = () => {
             try {
@@ -2598,7 +2584,7 @@
             const d = p.getAttribute('d') || '';
             if (d.startsWith('M18.77') || d.includes('18.77 11.13') || d.includes('18.77')) {
                 const btn = p.closest('button');
-                if (btn && btn.id !== 'ep-chat-send-btn' && btn.id !== 'ep-native-send-proxy-btn') {
+                if (btn && btn.id !== 'ep-chat-send-btn' && btn.id !== 'ep-native-send-proxy-btn' && !btn.closest('#ep-native-send-slot') && !btn.closest('#ep-chat-right-drawer')) {
                     nativeSendBtn = btn;
                     break;
                 }
@@ -2609,7 +2595,7 @@
         if (!nativeSendBtn) {
             const primaryBtns = document.querySelectorAll('button.bg-primary.rounded-full, button.rounded-full[class*="bg-primary"], button[class*="bg-primary"]');
             for (const b of primaryBtns) {
-                if (b.id !== 'ep-chat-send-btn' && b.id !== 'ep-native-send-proxy-btn' && !b.closest('#ep-chat-right-drawer')) {
+                if (b.id !== 'ep-chat-send-btn' && b.id !== 'ep-native-send-proxy-btn' && !b.closest('#ep-native-send-slot') && !b.closest('#ep-chat-right-drawer')) {
                     if (b.querySelector('svg')) {
                         nativeSendBtn = b;
                         break;
@@ -2664,61 +2650,55 @@
         slot.style.setProperty('width', '28px', 'important');
         slot.style.setProperty('height', '28px', 'important');
 
-        // 1. 크랙 원본 순정 전송 버튼 탐색
+        // 1. 크랙 원본 순정 전송 버튼 탐색 (슬롯 외부)
         const nativeSendBtn = findCrackNativeSendButton();
-        let currentChild = slot.querySelector('button');
 
-        // 2. 순정 버튼이 발견되었고 슬롯에 들어있지 않다면 -> 슬롯으로 단독 안착
-        if (nativeSendBtn && nativeSendBtn !== currentChild) {
-            if (currentChild && currentChild.id === 'ep-native-send-proxy-btn') {
-                currentChild.remove();
-            }
-            // 슬롯 내 모델 선택 등 기타 불필요 요소 제거
-            Array.from(slot.children).forEach(ch => {
-                if (ch !== nativeSendBtn) ch.remove();
-            });
-            slot.appendChild(nativeSendBtn);
-            currentChild = nativeSendBtn;
+        // 2. 순정 원본 버튼은 숨김 처리하여 2중 노출 방지 (React DOM 트리는 훼손하지 않고 유지)
+        if (nativeSendBtn && !slot.contains(nativeSendBtn)) {
+            nativeSendBtn.style.setProperty('display', 'none', 'important');
+            nativeSendBtn.style.setProperty('opacity', '0', 'important');
+            nativeSendBtn.style.setProperty('pointer-events', 'none', 'important');
         }
 
-        // 3. 만약 슬롯에 버튼이 없다면 (초기 로딩 중이거나 React 재렌더링 중에도)
-        // 0.1초의 순간에도 사라지지 않도록 즉시 순정 동일 전송 버튼 생성하여 상시 유지!
-        if (!currentChild || slot.children.length === 0) {
-            currentChild = document.createElement('button');
-            currentChild.id = 'ep-native-send-proxy-btn';
-            currentChild.type = 'button';
-            currentChild.title = '전송';
-            currentChild.innerHTML = `
+        // 3. 슬롯 내 전송 버튼 상시 영구 유지 (React가 어떤 작업을 해도 슬롯 내 버튼은 절대 삭제되지 않음)
+        let slotBtn = slot.querySelector('button#ep-native-send-proxy-btn');
+        if (!slotBtn) {
+            slot.innerHTML = '';
+            slotBtn = document.createElement('button');
+            slotBtn.id = 'ep-native-send-proxy-btn';
+            slotBtn.type = 'button';
+            slotBtn.title = '전송';
+            slotBtn.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" style="pointer-events: none; width: 14px; height: 14px; display: block;">
                     <path fill="#ffffff" d="M18.77 11.13 5.75 3.39c-.93-.56-2.1.18-2.01 1.26l.72 8.65c.02.26.22.46.48.48l7.06.59c.27.02.27.42 0 .44l-7.06.59c-.26.02-.46.22-.48.48l-.72 8.65c-.09 1.08 1.08 1.82 2.01 1.26l13.02-7.74c.97-.58.97-1.98 0-2.56z"/>
                 </svg>
             `;
-            slot.appendChild(currentChild);
+            slot.appendChild(slotBtn);
         }
 
         // 4. 슬롯 버튼 스타일 강제 보장 (Crack purple #7c3aed, 원형, 28px, 흰색 아이콘)
-        currentChild.style.setProperty('display', 'inline-flex', 'important');
-        currentChild.style.setProperty('align-items', 'center', 'important');
-        currentChild.style.setProperty('justify-content', 'center', 'important');
-        currentChild.style.setProperty('visibility', 'visible', 'important');
-        currentChild.style.setProperty('opacity', '1', 'important');
-        currentChild.style.setProperty('pointer-events', 'auto', 'important');
-        currentChild.style.setProperty('cursor', 'pointer', 'important');
-        currentChild.style.setProperty('position', 'relative', 'important');
-        currentChild.style.setProperty('z-index', '2147483605', 'important');
-        currentChild.style.setProperty('margin', '0', 'important');
-        currentChild.style.setProperty('padding', '0', 'important');
-        currentChild.style.setProperty('width', '28px', 'important');
-        currentChild.style.setProperty('height', '28px', 'important');
-        currentChild.style.setProperty('min-width', '28px', 'important');
-        currentChild.style.setProperty('min-height', '28px', 'important');
-        currentChild.style.setProperty('border-radius', '50%', 'important');
-        currentChild.style.setProperty('background-color', '#7c3aed', 'important');
-        currentChild.style.setProperty('border', 'none', 'important');
-        currentChild.style.setProperty('box-shadow', '0 1px 4px rgba(124, 58, 237, 0.35)', 'important');
-        currentChild.style.setProperty('touch-action', 'manipulation', 'important');
+        slotBtn.style.setProperty('display', 'inline-flex', 'important');
+        slotBtn.style.setProperty('align-items', 'center', 'important');
+        slotBtn.style.setProperty('justify-content', 'center', 'important');
+        slotBtn.style.setProperty('visibility', 'visible', 'important');
+        slotBtn.style.setProperty('opacity', '1', 'important');
+        slotBtn.style.setProperty('pointer-events', 'auto', 'important');
+        slotBtn.style.setProperty('cursor', 'pointer', 'important');
+        slotBtn.style.setProperty('position', 'relative', 'important');
+        slotBtn.style.setProperty('z-index', '2147483605', 'important');
+        slotBtn.style.setProperty('margin', '0', 'important');
+        slotBtn.style.setProperty('padding', '0', 'important');
+        slotBtn.style.setProperty('width', '28px', 'important');
+        slotBtn.style.setProperty('height', '28px', 'important');
+        slotBtn.style.setProperty('min-width', '28px', 'important');
+        slotBtn.style.setProperty('min-height', '28px', 'important');
+        slotBtn.style.setProperty('border-radius', '50%', 'important');
+        slotBtn.style.setProperty('background-color', '#7c3aed', 'important');
+        slotBtn.style.setProperty('border', 'none', 'important');
+        slotBtn.style.setProperty('box-shadow', '0 1px 4px rgba(124, 58, 237, 0.35)', 'important');
+        slotBtn.style.setProperty('touch-action', 'manipulation', 'important');
 
-        const svgEl = currentChild.querySelector('svg');
+        const svgEl = slotBtn.querySelector('svg');
         if (svgEl) {
             svgEl.style.setProperty('width', '14px', 'important');
             svgEl.style.setProperty('height', '14px', 'important');
@@ -2730,7 +2710,7 @@
         }
 
         // 5. 버튼 전송 액션 바인딩
-        bindSendActionToButton(currentChild);
+        bindSendActionToButton(slotBtn);
     }
 
     // 구버전 및 레거시 호출 호환성 보장
@@ -6406,9 +6386,9 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
     /* ==========================================================================
      * 6. SPA 라우팅 대응 상시 주입 감시 (무거운 감시 없음 / 가벼운 확인 루프)
      * ========================================================================== */
-    initializeFirebaseDynamically();
-    fetchRealTimeExchangeRate();
-    fetchCrackCash();
+    try { initializeFirebaseDynamically(); } catch (_) {}
+    try { fetchRealTimeExchangeRate(); } catch (_) {}
+    try { fetchCrackCash(); } catch (_) {}
 
     let lastCheckedChatId = '';
     let isAiGeneratingState = false;
@@ -6492,9 +6472,11 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
 
     function checkAndInject() {
         try {
+            // [플로팅 진단 UI 최우선 주입]: 화면에 진단 버튼을 최우선으로 띄워 로딩 상태 가시화
+            try { injectDiagnosticFloatingUI(); } catch (_) {}
+
             injectBaseDOM();
             maintainCrackNativeInput();
-            injectDiagnosticFloatingUI();
             stripLoreOnlyFromView();
             monitorSendButtonState();
 
