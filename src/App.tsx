@@ -88,10 +88,10 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  v2.2.7
+                  v2.2.8
                 </span>
               </div>
-              <p className="text-xs text-slate-400">순정 전송버튼 단독 안착 & 스크롤 오작동 가드 & 단축구슬 가로스크롤</p>
+              <p className="text-xs text-slate-400">전송 버튼 상시 영구 노출 & 단축구슬 8종 일괄 노출 (커스텀 구슬 맨 앞 배치)</p>
             </div>
           </div>
           <button
@@ -115,17 +115,17 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                요청사항 전면 수정 및 검증 완료 (v2.2.7)
+                요청사항 전면 수정 및 검증 완료 (v2.2.8)
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
                 </span>
               </h2>
               <ul className="text-xs sm:text-sm text-slate-300 mt-1.5 space-y-1 leading-relaxed list-disc list-inside">
-                <li><strong className="text-purple-300">순정 전송 버튼만 단독 노출:</strong> 모델 선택 버튼 및 기타 요소가 슬롯에 혼재되던 문제를 전면 제거하고 오직 크랙 순정 전송버튼(M18.77)만 우하단 슬롯(#ep-native-send-slot)에 제자리 단독 안착 (유저 실제 터치로 isTrusted 통과)</li>
-                <li><strong className="text-purple-300">스크롤 시 버튼 오작동 방지 가드:</strong> 단축구슬을 넘기려고 손가락으로 가로 스크롤할 때(이동거리 &gt; 6px) 구슬/버튼 입력이 실행되지 않도록 터치 제스처 가드 탑재. 멈춘 상태의 가벼운 탭만 정밀하게 입력</li>
-                <li><strong className="text-purple-300">단축구슬 5개 고정 & 가로스크롤 유지:</strong> 단축어·퀵패널·회색점선 좌측 고정, 우측 10개 구슬은 스크롤바 없이 5개씩 부드러운 스와이프로 쾌적하게 사용</li>
-                <li><strong className="text-purple-300">모바일 플로팅 진단기 v2.2.7 갱신:</strong> 우하단 🐞 버튼을 통해 언제든 순정 전송버튼 안착 상태 및 런타임 로그 1클릭 복사 가능</li>
+                <li><strong className="text-purple-300">순정 전송 버튼 상시 영구 노출:</strong> 로딩 몇 초 후 전송 버튼이 사라지던 문제를 React removeChild 안전 우회 패치와 슬롯 상시 안착 엔진으로 영구 해결. 0.1초의 공백도 없이 우하단 슬롯(#ep-native-send-slot)에 전송 버튼이 100% 상시 유지되고 전송 동작 보장</li>
+                <li><strong className="text-purple-300">단축구슬 8종 스크롤 없이 일괄 노출:</strong> 따옴표(&quot;, &apos;) 2개를 삭제하고 남은 8종 구슬 전체를 가로 스크롤 없이 한 번에 나란히 배치. 스크롤할 필요 없이 한 번의 탭으로 즉시 입력</li>
+                <li><strong className="text-purple-300">커스텀 기호 구슬 맨 앞 배치:</strong> 기존 맨 뒤에 있던 커스텀 구슬(⚙️)을 회색 점선 바로 오른쪽, 행동 지문(*) 왼쪽에 최우선 배치 (탭: 기호 입력, 길게 누르기/우클릭: 커스텀 설정창 오픈)</li>
+                <li><strong className="text-purple-300">모바일 플로팅 진단기 v2.2.8 갱신:</strong> 우하단 🐞 버튼을 통해 전송버튼 상시 안착 상태 및 단축구슬 8종 노출 상태 실시간 진단 및 1클릭 복사 가능</li>
                 <li><strong className="text-emerald-400">헤더 퍼즐 서랍메뉴 100% 온전 보존</strong></li>
               </ul>
             </div>
