@@ -88,10 +88,10 @@ TypeError: Cannot read properties of null (reading 'appendChild')
               <div className="flex items-center gap-2">
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">PASTELchat × CRACK Bridge</h1>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  v2.2.6
+                  v2.2.7
                 </span>
               </div>
-              <p className="text-xs text-slate-400">순정 전송·모델버튼 슬롯 안착 & 하단툴바 먹통 완전 해결 & 단축구슬 가로스크롤</p>
+              <p className="text-xs text-slate-400">순정 전송버튼 단독 안착 & 스크롤 오작동 가드 & 단축구슬 가로스크롤</p>
             </div>
           </div>
           <button
@@ -115,17 +115,17 @@ TypeError: Cannot read properties of null (reading 'appendChild')
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                요청사항 전면 수정 및 검증 완료 (v2.2.6)
+                요청사항 전면 수정 및 검증 완료 (v2.2.7)
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
                 </span>
               </h2>
               <ul className="text-xs sm:text-sm text-slate-300 mt-1.5 space-y-1 leading-relaxed list-disc list-inside">
-                <li><strong className="text-purple-300">하단툴바 먹통 완전 해결:</strong> 미정의 함수 호출로 인한 이벤트 바인딩 중단 해결 + unblockPastelToolbar() 차단 레이어 해제 + 개별 버튼 직접 터치/클릭 바인딩(touchstart/touchend/click) + 최상위 z-index 보장</li>
-                <li><strong className="text-purple-300">순정 전송 & 모델선택 버튼 슬롯 안착:</strong> 크랙 사이트의 순정 전송버튼(M18.77)과 모델선택버튼(울트라챗/하이퍼챗)을 파스텔 툴바 우하단 슬롯에 제자리 안착하여 유저 손가락에 의한 진짜 순정 터치 이벤트로 작동 (외부 합성 클릭 감지 우회)</li>
-                <li><strong className="text-purple-300">단축구슬 5개 고정 & 가로스크롤:</strong> 단축어·퀵패널·회색점선은 제자리 고정, 우측 10개 구슬은 스크롤바 없이 딱 5개씩 부드러운 가로 스와이프로 이용 가능</li>
-                <li><strong className="text-purple-300">모바일 플로팅 진단기 탑재:</strong> 모바일에서 화면 우하단 🐞 버튼 탭 시 1클릭 복사 가능한 정밀 진단 보고서 지원 (v2.2.6 슬롯 안착 상태 검사 포함)</li>
+                <li><strong className="text-purple-300">순정 전송 버튼만 단독 노출:</strong> 모델 선택 버튼 및 기타 요소가 슬롯에 혼재되던 문제를 전면 제거하고 오직 크랙 순정 전송버튼(M18.77)만 우하단 슬롯(#ep-native-send-slot)에 제자리 단독 안착 (유저 실제 터치로 isTrusted 통과)</li>
+                <li><strong className="text-purple-300">스크롤 시 버튼 오작동 방지 가드:</strong> 단축구슬을 넘기려고 손가락으로 가로 스크롤할 때(이동거리 &gt; 6px) 구슬/버튼 입력이 실행되지 않도록 터치 제스처 가드 탑재. 멈춘 상태의 가벼운 탭만 정밀하게 입력</li>
+                <li><strong className="text-purple-300">단축구슬 5개 고정 & 가로스크롤 유지:</strong> 단축어·퀵패널·회색점선 좌측 고정, 우측 10개 구슬은 스크롤바 없이 5개씩 부드러운 스와이프로 쾌적하게 사용</li>
+                <li><strong className="text-purple-300">모바일 플로팅 진단기 v2.2.7 갱신:</strong> 우하단 🐞 버튼을 통해 언제든 순정 전송버튼 안착 상태 및 런타임 로그 1클릭 복사 가능</li>
                 <li><strong className="text-emerald-400">헤더 퍼즐 서랍메뉴 100% 온전 보존</strong></li>
               </ul>
             </div>
