@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.4.1
+// @version      2.4.2
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -145,12 +145,13 @@
             background-color: var(--bg_screen, #ffffff) !important;
         }
 
-        /* 첫 메시지 가림 방지 상단 패딩 */
-        main.relative.h-full.min-w-0.flex-1,
-        .stick-to-bottom {
+        /* 첫 메시지 가림 방지 상단 패딩 (대화창 스크롤 유령 공백 완전 소거) */
+        main.relative.h-full.min-w-0.flex-1 {
             padding-top: 108px !important;
         }
-
+        .stick-to-bottom {
+            padding-top: 0 !important;
+        }
         /* 단축구슬 5개 전용 무음 가로 스크롤 컨테이너 (비좁음 해소 & 5개 노출) */
         .ep-symbol-scroll-box {
             display: flex;
@@ -625,11 +626,11 @@
             overflow: visible !important;
         }
 
-        /* 4. [모델선택 + 전송 버튼 세트]: 찌그러짐 해제(fixed) 및 왼쪽 단축어 버튼(20px)과 100% 대칭 안착 */
+        /* 4. [모델선택 + 전송 버튼 세트]: 40px 우측 이동(right: 12px) 툴바 우하단 끝선 정밀 안착 */
         .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
             position: fixed !important;
             bottom: 23px !important;
-            right: calc(50% - 380px + 20px) !important;
+            right: calc(50% - 380px + 12px) !important;
             z-index: 10005 !important;
             pointer-events: auto !important;
             display: flex !important;
@@ -641,7 +642,7 @@
         }
         @media (max-width: 768px) {
             .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
-                right: 52px !important; /* 모바일 입력창 테두리 기준 정확히 20px 안쪽 대칭 */
+                right: 12px !important; /* 40px 우측 이동 완료 */
             }
         }
 
@@ -2439,22 +2440,14 @@
                 });
             }
 
-            // 3. RAG 로어 조립 (로어가 없을 때는 지연 없이 0초 만에 유저 글 즉각 보존)
+            // 3. 비동기 RAG 로어 조립 완수 (첫 번째 원본 100% 복원: 타임아웃 완전 배제)
             const chatId = getChatId();
-            let loreBlock = "";
-            try {
-                loreBlock = await Promise.race([
-                    buildCrackRAGLoreBlock(userExpandedText, chatId),
-                    new Promise(r => setTimeout(() => r(""), 300))
-                ]);
-            } catch (_) {
-                loreBlock = "";
-            }
+            const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
             const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
 
             localStorage.setItem('pastel_last_sent_backup', rawInput);
 
-            // 4. ProseMirror 에디터에 글 주입 (개행 뻥튀기 유발하는 중복 paste 이벤트 제거 및 1:1 클린 주입)
+            // 4. ProseMirror 에디터에 글 주입 (첫 번째 원본 파일 스마트 결합 복원: 엔터 뻥튀기 방어)
             const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
             if (editor) {
                 editor.focus();
@@ -2465,21 +2458,35 @@
                 sel.removeAllRanges();
                 sel.addRange(range);
 
-                // \r\n 개행 정규화 (CRLF 중복 인식 원천 차단)
-                const cleanPayload = finalPayloadMessage.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                // [첫 번째 원본 스마트 결합]: 크랙 에디터가 끼워넣는 불필요한 연속 빈 줄만 1줄로 결합 교정
+                let cleanPayload = finalPayloadMessage.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                cleanPayload = cleanPayload
+                    .replace(/([—―][^\n]+)\n+(?=▎)/g, '$1\n')
+                    .replace(/(▎[^\n]*)\n+(?=▎)/g, '$1\n')
+                    .replace(/([—―][^\n]+)\n+(?=`)/g, '$1\n')
+                    .replace(/(`[^`\n]+`)\n+(?=`)/g, '$1\n')
+                    .replace(/\n{3,}/g, '\n\n');
 
+                // 첫 번째 원본 주입 파이프라인
                 let success = false;
                 try {
                     success = document.execCommand('insertText', false, cleanPayload);
                 } catch (_) {}
 
-                // 실패 시 폴백 주입
                 if (!success || !editor.textContent.trim()) {
+                    try {
+                        const dt = new DataTransfer();
+                        dt.setData('text/plain', cleanPayload);
+                        const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                        editor.dispatchEvent(pasteEvt);
+                    } catch (_) {}
+                }
+
+                if (!editor.textContent.trim()) {
                     const paragraphs = cleanPayload.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
                     editor.innerHTML = paragraphs;
                 }
 
-                // [엔터 뻥튀기 방어]: 줄바꿈을 한 번 더 불리던 insertFromPaste 이벤트를 제거하고, 순수 State 갱신 이벤트만 단일 발송
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
                 editor.dispatchEvent(new Event('change', { bubbles: true }));
 
