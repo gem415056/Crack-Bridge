@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.4.2
+// @version      2.4.3
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -626,11 +626,11 @@
             overflow: visible !important;
         }
 
-        /* 4. [모델선택 + 전송 버튼 세트]: 40px 우측 이동(right: 12px) 툴바 우하단 끝선 정밀 안착 */
+        /* 4. [모델선택 + 전송 버튼 세트]: 10px 좌측 이동(right: 22px) 완벽한 황금 밸런스 안착 */
         .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
             position: fixed !important;
             bottom: 23px !important;
-            right: calc(50% - 380px + 12px) !important;
+            right: calc(50% - 380px + 22px) !important;
             z-index: 10005 !important;
             pointer-events: auto !important;
             display: flex !important;
@@ -642,7 +642,7 @@
         }
         @media (max-width: 768px) {
             .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
-                right: 12px !important; /* 40px 우측 이동 완료 */
+                right: 22px !important; /* 10px 좌측 이동 완료 */
             }
         }
 
@@ -2447,18 +2447,12 @@
 
             localStorage.setItem('pastel_last_sent_backup', rawInput);
 
-            // 4. ProseMirror 에디터에 글 주입 (첫 번째 원본 파일 스마트 결합 복원: 엔터 뻥튀기 방어)
+            // 4. ProseMirror 에디터에 글 주입 (단일 단락 <br> 1:1 직결 주입: 엔터 뻥튀기 100% 영구 박멸)
             const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
             if (editor) {
                 editor.focus();
 
-                const sel = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(editor);
-                sel.removeAllRanges();
-                sel.addRange(range);
-
-                // [첫 번째 원본 스마트 결합]: 크랙 에디터가 끼워넣는 불필요한 연속 빈 줄만 1줄로 결합 교정
+                // 개행 정규화 및 첫 번째 원본 스마트 결합 적용
                 let cleanPayload = finalPayloadMessage.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 cleanPayload = cleanPayload
                     .replace(/([—―][^\n]+)\n+(?=▎)/g, '$1\n')
@@ -2467,26 +2461,13 @@
                     .replace(/(`[^`\n]+`)\n+(?=`)/g, '$1\n')
                     .replace(/\n{3,}/g, '\n\n');
 
-                // 첫 번째 원본 주입 파이프라인
-                let success = false;
-                try {
-                    success = document.execCommand('insertText', false, cleanPayload);
-                } catch (_) {}
+                // [엔터 뻥튀기 박멸 핵심]: <p> 단락 쪼개기를 배제하고, 단일 <p> 안에서 줄바꿈을 <br>로 1:1 직결 매핑
+                const lines = cleanPayload.split('\n');
+                const brContent = lines.map(line => line ? line : '<br class="ProseMirror-trailingBreak">').join('<br>');
+                editor.innerHTML = `<p>${brContent || '<br class="ProseMirror-trailingBreak">'}</p>`;
 
-                if (!success || !editor.textContent.trim()) {
-                    try {
-                        const dt = new DataTransfer();
-                        dt.setData('text/plain', cleanPayload);
-                        const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-                        editor.dispatchEvent(pasteEvt);
-                    } catch (_) {}
-                }
-
-                if (!editor.textContent.trim()) {
-                    const paragraphs = cleanPayload.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
-                    editor.innerHTML = paragraphs;
-                }
-
+                // Tiptap/ProseMirror State 실시간 동기화
+                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: cleanPayload }));
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
                 editor.dispatchEvent(new Event('change', { bubbles: true }));
 
@@ -2497,7 +2478,7 @@
                     return;
                 }
             }
-
+            
             // 5. 텍스트 완벽 채움 확정 후 진짜 전송 발송
             isInternalSending = true;
             setTimeout(() => {
