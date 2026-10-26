@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.1
+// @version      2.3.2
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -112,11 +112,10 @@
             z-index: -99999 !important;
         }
 
-       /* 1. 최상단 메인 헤더 영구 고정 (로고/크래커/검색 바) */
+       /* 1. 최상단 메인 헤더 영구 고정 (다른 부모 간섭 방지 정밀 셀렉터) */
         header,
-        header:has(.grid-cols-3),
-        div:has(> .relative.h-full.px-3.grid.grid-cols-3),
-        div:has(> div > svg[width="693"]) {
+        .relative.h-full.px-3.grid.grid-cols-3.items-center,
+        div[class*="group/lnb-header"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
@@ -129,33 +128,55 @@
             background-color: var(--bg_screen, #ffffff) !important;
         }
 
-        /* 1-1. 대화방 서브 헤더 영구 고정 (대화방 제목 + 파스텔 서랍 버튼) */
-        .absolute.top-0.left-0.w-full.z-docked.group\/header,
+        /* 1-1. 대화방 서브 헤더 화면 상단 영구 고정 (Highfield Prep 서브헤더 100% 복원) */
         .absolute.z-docked.left-0.w-full.h-12,
-        div[class*="group/header"] > div:first-child,
-        .h-12.px-5.flex.justify-between.items-center {
+        div.h-12.px-5.flex.justify-between.items-center,
+        div:has(> button > span.line-clamp-1) {
             position: fixed !important;
             top: 56px !important;
             left: 0 !important;
             right: 0 !important;
-            transform: none !important;
+            height: 48px !important;
+            transform: translate3d(0, 0, 0) !important;
             opacity: 1 !important;
             visibility: visible !important;
+            display: flex !important;
             z-index: 100060 !important;
             background-color: var(--bg_screen, #ffffff) !important;
         }
 
-        /* 헤더 고정으로 인한 첫 메시지 가림 방지 상단 여백 확보 */
-        main.relative.h-full.min-w-0.flex-1 {
+        /* 첫 메시지 가림 방지 상단 패딩 */
+        main.relative.h-full.min-w-0.flex-1,
+        .stick-to-bottom {
             padding-top: 108px !important;
         }
 
-        body[data-theme="dark"] header,
-        body[data-theme="dark"] div:has(> .relative.h-full.px-3.grid.grid-cols-3),
-        body[data-theme="dark"] .absolute.z-docked.left-0.w-full.h-12 {
-            background-color: #141413 !important;
+        /* 단축구슬 6개 전용 무음 가로 스크롤 컨테이너 (스크롤바 완전 은닉) */
+        .ep-symbol-scroll-box {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            max-width: 188px; /* 딱 6개 구슬 크기 */
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none !important; /* Firefox */
+            -ms-overflow-style: none !important; /* IE/Edge */
+            flex-shrink: 0;
+            padding: 2px 2px 2px 0;
+            box-sizing: border-box;
+        }
+        .ep-symbol-scroll-box::-webkit-scrollbar {
+            display: none !important; /* Chrome / Safari / 모바일 */
+            width: 0 !important;
+            height: 0 !important;
         }
 
+        body[data-theme="dark"] header,
+        body[data-theme="dark"] .relative.h-full.px-3.grid.grid-cols-3.items-center,
+        body[data-theme="dark"] .absolute.z-docked.left-0.w-full.h-12,
+        body[data-theme="dark"] div.h-12.px-5.flex.justify-between.items-center {
+            background-color: #141413 !important;
+        }
         /* 2. 크랙 순정 가변 패딩 및 대화 스크롤 유령 공백 완전 초기화 */
         .flex.flex-col.w-full.px-5,
         .flex.flex-col.w-full.max-w-\[768px\],
@@ -2310,8 +2331,8 @@
                         <button class="tool-btn" id="ep-chat-tpl-popup-btn" type="button" title="페더 템플릿"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.086 18.412A2 2 0 0 1 12.67 19H5v-7.672a2 2 0 0 1 .586-1.414L11.75 3.75a6 6 0 1 1 8.49 8.49z"/><path d="M16 8 2 22"/><path d="M17.488 15H9"/></svg></button>
                     </div>
                     <span class="vertical-divider"></span>
-                    <!-- 순정 구슬 단축 버튼 9종 + 커스텀 기호(* 왼쪽으로 재배치) -->
-                    <div style="display: flex; gap: 6px; align-items: center;">
+                    <!-- 6개 노출 무음 가로 스크롤 구슬 래퍼 -->
+                    <div class="ep-symbol-scroll-box">
                         <button class="tool-btn" id="ep-cmd-symbol-btn" data-open="/*" data-close="*/" type="button" title="커스텀 기호 설정" style="color: #888;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; display: block;"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="*" type="button" title="행동 지문"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open='"' type="button" title="쌍따옴표 대사"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M96 280C96 213.7 149.7 160 216 160L224 160C241.7 160 256 174.3 256 192C256 209.7 241.7 224 224 224L216 224C185.1 224 160 249.1 160 280L160 288L224 288C259.3 288 288 316.7 288 352L288 416C288 451.3 259.3 480 224 480L160 480C124.7 480 96 451.3 96 416L96 280zM352 280C352 213.7 405.7 160 472 160L480 160C497.7 160 512 174.3 512 192C512 209.7 497.7 224 480 224L472 224C441.1 224 416 249.1 416 280L416 288L480 288C515.3 288 544 316.7 544 352L544 416C544 451.3 480 480 480 480L416 480C380.7 480 352 451.3 352 416L352 280z"/></svg></button>
@@ -2325,7 +2346,7 @@
                     </div>
 
                     <!-- 순정 [모델선택 + 전송 버튼 세트]를 맞이할 우측 여유 슬롯 -->
-                    <div id="ep-native-send-slot" style="margin-left: auto; display: flex; align-items: center; justify-content: flex-end; min-width: 130px; height: 32px;"></div>
+                    <div id="ep-native-send-slot" style="margin-left: auto; display: flex; align-items: center; justify-content: flex-end; min-width: 140px; height: 32px; flex-shrink: 0;"></div>
                 </div>
             </div>
         `;
@@ -2365,12 +2386,14 @@
 
         // 슬롯의 화면상 실제 좌표 정밀 계산
         const rect = slot.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
+        if (rect.width === 0 || rect.height === 0 || rect.top === 0) return;
 
-        // DOM에서 뜯어내지 않고(appendChild 금지) CSS 오버레이로 파스텔 슬롯에 1:1 밀착
+        // 계산기와 겹치지 않고 파스텔 툴바 우측 슬롯 내부로 정밀 오버레이
         controlGroup.style.position = 'fixed';
-        controlGroup.style.top = `${rect.top + ((rect.height - 28) / 2)}px`;
-        controlGroup.style.right = `${window.innerWidth - rect.right}px`;
+        controlGroup.style.top = `${rect.top + 2}px`;
+        controlGroup.style.left = 'auto';
+        controlGroup.style.right = `${Math.max(16, window.innerWidth - rect.right)}px`;
+        controlGroup.style.height = '28px';
         controlGroup.style.zIndex = '100005';
         controlGroup.style.opacity = '1';
         controlGroup.style.visibility = 'visible';
