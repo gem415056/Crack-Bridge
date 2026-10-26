@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.4.3
+// @version      2.4.4
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -2447,12 +2447,12 @@
 
             localStorage.setItem('pastel_last_sent_backup', rawInput);
 
-            // 4. ProseMirror 에디터에 글 주입 (단일 단락 <br> 1:1 직결 주입: 엔터 뻥튀기 100% 영구 박멸)
+            // 4. ProseMirror 에디터에 글 주입 (2단계 계층형 매핑: 1번 엔터와 2번 빈 줄 100% 동시 커버)
             const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
             if (editor) {
                 editor.focus();
 
-                // 개행 정규화 및 첫 번째 원본 스마트 결합 적용
+                // 1. 개행 정규화 및 대사카드 스마트 결합 적용
                 let cleanPayload = finalPayloadMessage.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 cleanPayload = cleanPayload
                     .replace(/([—―][^\n]+)\n+(?=▎)/g, '$1\n')
@@ -2461,10 +2461,15 @@
                     .replace(/(`[^`\n]+`)\n+(?=`)/g, '$1\n')
                     .replace(/\n{3,}/g, '\n\n');
 
-                // [엔터 뻥튀기 박멸 핵심]: <p> 단락 쪼개기를 배제하고, 단일 <p> 안에서 줄바꿈을 <br>로 1:1 직결 매핑
-                const lines = cleanPayload.split('\n');
-                const brContent = lines.map(line => line ? line : '<br class="ProseMirror-trailingBreak">').join('<br>');
-                editor.innerHTML = `<p>${brContent || '<br class="ProseMirror-trailingBreak">'}</p>`;
+                // 2. [2단계 계층형 매핑]: 빈 줄(\n\n)로 문단(<p>) 분리, 문단 내부 엔터 1개(\n)는 <br>로 직결 연결
+                const paragraphBlocks = cleanPayload.split(/\n{2,}/);
+                const html = paragraphBlocks.map(block => {
+                    const lines = block.split('\n');
+                    const content = lines.join('<br>');
+                    return `<p>${content || '<br class="ProseMirror-trailingBreak">'}</p>`;
+                }).join('');
+
+                editor.innerHTML = html;
 
                 // Tiptap/ProseMirror State 실시간 동기화
                 editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: cleanPayload }));
@@ -2475,7 +2480,7 @@
                 const isContentReady = editor.textContent && editor.textContent.trim().length > 0;
                 if (!isContentReady) {
                     showToast("⚠️ 에디터 입력 처리 중... 1초 후 다시 전송을 눌러주세요.");
-                    return;
+                    return; // 미주입 시 전송 차단하여 크래커 손실 방어
                 }
             }
             
