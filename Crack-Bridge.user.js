@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.2
+// @version      2.3.3
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -584,7 +584,7 @@
             font-weight: bold !important;
         }
 
-        /* 크랙 순정 ProseMirror 에디터 및 좌측 추천 버튼만 정밀 은닉 (모델선택+전송버튼 그룹은 100% 보존) */
+        /* 크랙 순정 ProseMirror 에디터 및 좌측 추천 버튼 은닉 */
         .bg-bg_screen.pointer-events-auto form,
         .bg-bg_screen.pointer-events-auto p.text-xs,
         .bg-bg_screen.pointer-events-auto .text-text_tertiary,
@@ -597,8 +597,11 @@
             padding: 0 !important;
         }
 
-        /* 순정 외부 박스의 테두리와 여백을 없애 파스텔 입력창과 완전 일체화 */
+        /* 순정 외부 래퍼를 완전 무공간(유령화) 처리하여 계산기 위 허공 점유 100% 제거 */
         .bg-bg_screen.pointer-events-auto > div.flex.w-full.flex-col.rounded-lg.border {
+            position: absolute !important;
+            inset: 0 !important;
+            pointer-events: none !important;
             border: none !important;
             background: transparent !important;
             padding: 0 !important;
@@ -606,6 +609,21 @@
             height: 0 !important;
             min-height: 0 !important;
             box-shadow: none !important;
+        }
+
+        /* [모델선택 + 전송 버튼 세트] 파스텔 입력창 맨 하단 툴바 우측 슬롯 자리로 정확히 착지 */
+        .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
+            position: absolute !important;
+            bottom: 20px !important;
+            right: 20px !important;
+            z-index: 10005 !important;
+            pointer-events: auto !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            height: 28px !important;
+            margin: 0 !important;
+            transform: none !important;
         }
 
         /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 (상단 패딩 0 강제) */
@@ -2331,20 +2349,20 @@
                         <button class="tool-btn" id="ep-chat-tpl-popup-btn" type="button" title="페더 템플릿"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.086 18.412A2 2 0 0 1 12.67 19H5v-7.672a2 2 0 0 1 .586-1.414L11.75 3.75a6 6 0 1 1 8.49 8.49z"/><path d="M16 8 2 22"/><path d="M17.488 15H9"/></svg></button>
                     </div>
                     <span class="vertical-divider"></span>
-                    <!-- 6개 노출 무음 가로 스크롤 구슬 래퍼 -->
+                    <!-- 단축구슬 신규 재배치 (* -> ... -> ▎ -> ♡ -> — -> ` -> ( ) -> [ ] -> OOC) -->
                     <div class="ep-symbol-scroll-box">
                         <button class="tool-btn" id="ep-cmd-symbol-btn" data-open="/*" data-close="*/" type="button" title="커스텀 기호 설정" style="color: #888;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; display: block;"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="*" type="button" title="행동 지문"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open='"' type="button" title="쌍따옴표 대사"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M96 280C96 213.7 149.7 160 216 160L224 160C241.7 160 256 174.3 256 192C256 209.7 241.7 224 224 224L216 224C185.1 224 160 249.1 160 280L160 288L224 288C259.3 288 288 316.7 288 352L288 416C288 451.3 259.3 480 224 480L160 480C124.7 480 96 451.3 96 416L96 280zM352 280C352 213.7 405.7 160 472 160L480 160C497.7 160 512 174.3 512 192C512 209.7 497.7 224 480 224L472 224C441.1 224 416 249.1 416 280L416 288L480 288C515.3 288 544 316.7 544 352L544 416C544 451.3 480 480 480 480L416 480C380.7 480 352 451.3 352 416L352 280z"/></svg></button>
-                        <button class="tool-btn ep-symbol-btn" data-open="'" type="button" title="홑따옴표 독백"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style="width:15px;height:15px;fill:#888888;"><path d="M352 160C369.7 160 384 174.3 384 192C384 209.7 369.7 224 352 224L344 224C313.1 224 288 249.1 288 280L288 288L352 288C387.3 288 416 316.7 416 352L416 416C416 451.3 387.3 480 352 480L288 480C252.7 480 224 451.3 224 416L224 280C224 213.7 277.7 160 344 160L352 160z"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="…" type="button" title="말줄임표"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+                        <button class="tool-btn ep-symbol-btn" data-open="▎" type="button" title="구분 세로바"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;transform:rotate(90deg);"><path d="M5 12h14"/></svg></button>
+                        <button class="tool-btn ep-symbol-btn" data-open="♡" type="button" title="하트"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="—" type="button" title="엠대쉬"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M5 12h14"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="&#96;" type="button" title="백틱"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="[" data-close="]" type="button" title="대괄호"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M16 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-3"/><path d="M8 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3"/></svg></button>
                         <button class="tool-btn ep-symbol-btn" data-open="(OOC：" data-close=")" type="button" title="OOC"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg></button>
                     </div>
-
+            
                     <!-- 순정 [모델선택 + 전송 버튼 세트]를 맞이할 우측 여유 슬롯 -->
                     <div id="ep-native-send-slot" style="margin-left: auto; display: flex; align-items: center; justify-content: flex-end; min-width: 140px; height: 32px; flex-shrink: 0;"></div>
                 </div>
@@ -2358,14 +2376,11 @@
         fetchCrackCash();
     }
 
-    // [비파괴 좌표 오버레이 엔진]: [모델 선택 + 전송 버튼 세트]를 파스텔 툴바 우측 슬롯에 1:1 안착
+    // [비파괴 결합 엔진]: CSS로 착지된 전송 버튼에 PointerDown 선행 주입 파이프라인 연결
     let hasBoundNativePointerPipeline = false;
 
     function moveNativeSendButtonToSlot() {
-        const slot = document.getElementById('ep-native-send-slot');
-        if (!slot) return;
-
-        // 순정 전송 버튼 및 [모델 선택 + 전송 버튼] 부모 그룹 탐색
+        // 순정 전송 버튼 탐색
         let nativeBtn = null;
         const pathList = document.querySelectorAll('svg path');
         for (const p of pathList) {
@@ -2380,29 +2395,6 @@
         }
 
         if (!nativeBtn) return;
-
-        // [모델선택 + 전송버튼] 세트 그룹(div.flex.min-w-0.items-center.gap-2) 추출
-        const controlGroup = nativeBtn.closest('.flex.min-w-0.items-center.gap-2') || nativeBtn;
-
-        // 슬롯의 화면상 실제 좌표 정밀 계산
-        const rect = slot.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0 || rect.top === 0) return;
-
-        // 계산기와 겹치지 않고 파스텔 툴바 우측 슬롯 내부로 정밀 오버레이
-        controlGroup.style.position = 'fixed';
-        controlGroup.style.top = `${rect.top + 2}px`;
-        controlGroup.style.left = 'auto';
-        controlGroup.style.right = `${Math.max(16, window.innerWidth - rect.right)}px`;
-        controlGroup.style.height = '28px';
-        controlGroup.style.zIndex = '100005';
-        controlGroup.style.opacity = '1';
-        controlGroup.style.visibility = 'visible';
-        controlGroup.style.pointerEvents = 'auto';
-        controlGroup.style.display = 'flex';
-        controlGroup.style.alignItems = 'center';
-        controlGroup.style.gap = '8px';
-        controlGroup.style.margin = '0';
-        controlGroup.style.transform = 'none';
 
         // [PointerDown 선행 주입 파이프라인]: 유저가 전송 버튼에 손가락을 대는 순간 ProseMirror 주입
         if (!hasBoundNativePointerPipeline) {
