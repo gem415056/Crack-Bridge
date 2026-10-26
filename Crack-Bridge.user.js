@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.5
+// @version      2.3.6
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -584,46 +584,17 @@
             font-weight: bold !important;
         }
 
-        /* 크랙 순정 ProseMirror 에디터 및 좌측 추천 버튼 은닉 */
+        /* 크랙 하단 입력바 내부의 순정 폼 및 상단 잔여 래퍼 완전 소거 (계산기 위 뜸 원천 제거) */
         .bg-bg_screen.pointer-events-auto form,
         .bg-bg_screen.pointer-events-auto p.text-xs,
         .bg-bg_screen.pointer-events-auto .text-text_tertiary,
         .bg-bg_screen.pointer-events-auto .ProseMirror,
         .bg-bg_screen.pointer-events-auto .__chat_input_textarea,
-        .bg-bg_screen.pointer-events-auto .flex.shrink-0.items-center.gap-2 {
+        .bg-bg_screen.pointer-events-auto > div:not(.chat-footer-control) {
             display: none !important;
             height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
-        }
-
-        /* 순정 외부 래퍼를 완전 무공간(유령화) 처리하여 계산기 위 허공 점유 100% 제거 */
-        .bg-bg_screen.pointer-events-auto > div.flex.w-full.flex-col.rounded-lg.border {
-            position: absolute !important;
-            inset: 0 !important;
-            pointer-events: none !important;
-            border: none !important;
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            box-shadow: none !important;
-        }
-
-        /* [모델선택 + 전송 버튼 세트] 파스텔 입력창 맨 하단 툴바 우측 슬롯 자리로 정확히 착지 */
-        .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
-            position: absolute !important;
-            bottom: 20px !important;
-            right: 20px !important;
-            z-index: 10005 !important;
-            pointer-events: auto !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            height: 28px !important;
-            margin: 0 !important;
-            transform: none !important;
         }
 
         /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 (상단 패딩 0 강제) */
@@ -2376,116 +2347,26 @@
         fetchCrackCash();
     }
 
-    // [원본 100% 입증 엔진 복원]: Capture phase 일시정지 -> RAG 비동기 완성 -> 트랜잭션 주입 -> 확정 전송
-    let hasBoundNativeSendInterceptor = false;
-    let isInternalSending = false;
-
+    // 크랙 순정 전송 버튼을 파스텔 툴바 슬롯으로 직접 이동 (첫 번째 원본 100% 복원)
     function moveNativeSendButtonToSlot() {
-        // 순정 전송 버튼 정밀 탐색
-        let nativeBtn = null;
+        const slot = document.getElementById('ep-native-send-slot');
+        if (!slot) return;
+
         const pathList = document.querySelectorAll('svg path');
         for (const p of pathList) {
             const d = p.getAttribute('d') || '';
             if (d.startsWith('M18.77 11.13')) {
-                const b = p.closest('button');
-                if (b && b.id !== 'ep-chat-send-btn') {
-                    nativeBtn = b;
+                const nativeBtn = p.closest('button');
+                if (nativeBtn && !slot.contains(nativeBtn)) {
+                    nativeBtn.style.position = 'relative';
+                    nativeBtn.style.zIndex = '10';
+                    nativeBtn.style.cursor = 'pointer';
+                    nativeBtn.style.margin = '0';
+                    nativeBtn.style.transform = 'none';
+                    slot.appendChild(nativeBtn);
                     break;
                 }
             }
-        }
-
-        if (!nativeBtn) return;
-
-        if (!hasBoundNativeSendInterceptor) {
-            hasBoundNativeSendInterceptor = true;
-
-            // [초기 원본 파일의 검증된 가로채기 파이프라인 결합]
-            nativeBtn.addEventListener('click', async (e) => {
-                // 내부 확정 전송 시에는 크랙 순정 발송 통과
-                if (isInternalSending) return;
-
-                // 1. 크랙의 조급한 0초 즉시 전송을 강제로 정지 (공백 전송 원천 차단)
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                const textarea = document.getElementById('ep-chat-input-textarea');
-                if (!textarea) return;
-                const rawInput = textarea.value.trim();
-                if (!rawInput) return;
-
-                // 2. [단축어 100% 최우선 확장]
-                let userExpandedText = rawInput;
-                const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
-                if (Array.isArray(shortcuts)) {
-                    shortcuts.forEach(sh => {
-                        const token = `!${sh.title}`;
-                        if (userExpandedText.includes(token)) {
-                            userExpandedText += `\n\n---\n\`\`\`additional note: !${sh.title}\n${sh.text}\n\`\`\``;
-                        }
-                    });
-                }
-
-                // 3. [비동기 RAG 로어 조립 완수 (대기 보장)]
-                const chatId = getChatId();
-                const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
-                const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
-
-                // 4. [원문 긴급 비상 백업]
-                localStorage.setItem('pastel_last_sent_backup', rawInput);
-
-                // 5. [ProseMirror 3단계 가상 클립보드 트랜잭션 주입]
-                const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
-                if (editor) {
-                    editor.focus();
-
-                    // 전체 선택
-                    const sel = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(editor);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-
-                    // 1순위: execCommand 가상 붙여넣기
-                    let success = false;
-                    try {
-                        success = document.execCommand('insertText', false, finalPayloadMessage);
-                    } catch (_) {}
-
-                    // 2순위: DataTransfer 클립보드 붙여넣기 시뮬레이션
-                    if (!success || !editor.textContent.trim()) {
-                        try {
-                            const dt = new DataTransfer();
-                            dt.setData('text/plain', finalPayloadMessage);
-                            const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-                            editor.dispatchEvent(pasteEvt);
-                        } catch (_) {}
-                    }
-
-                    // 3순위: DOM 단락 주입 및 트랜잭션 InputEvent 발송
-                    if (!editor.textContent.trim()) {
-                        const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
-                        editor.innerHTML = paragraphs;
-                    }
-
-                    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
-                    editor.dispatchEvent(new Event('input', { bubbles: true }));
-                    editor.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-
-                // 6. 텍스트 완벽 채움 확인 후 확정 발송 실행
-                isInternalSending = true;
-                setTimeout(() => {
-                    nativeBtn.removeAttribute('disabled');
-                    nativeBtn.click();
-                    setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
-
-                    textarea.value = '';
-                    updateSendButtonColor();
-                    isInternalSending = false;
-                }, 80);
-            }, true); // Capture phase로 이벤트 최우선 정지 및 가로채기
         }
     }
 
@@ -3024,8 +2905,103 @@
             };
         }
 
-        // 전송 버튼 위치 상시 정렬 유지
-        moveNativeSendButtonToSlot();
+        // [첫 번째 원본 파일의 검증된 전송 가로채기 & RAG 주입 엔진 100% 복원]
+        const slot = document.getElementById('ep-native-send-slot');
+        let isInternalSending = false;
+
+        if (slot) {
+            slot.addEventListener('click', async (e) => {
+                // 내부에서 RAG 주입 완료 후 진짜 보낼 때는 통과
+                if (isInternalSending) return;
+
+                // 1. 브라우저의 조급한 0초 즉시 전송을 강제로 가로채어 멈춤 (공백 전송 원천 차단)
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+
+                const textarea = document.getElementById('ep-chat-input-textarea');
+                if (!textarea) return;
+                const rawInput = textarea.value.trim();
+                if (!rawInput) return;
+
+                // 2. [단축어 100% 최우선 확장] (!단축어 -> additional note)
+                let userExpandedText = rawInput;
+                const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
+                if (Array.isArray(shortcuts)) {
+                    shortcuts.forEach(sh => {
+                        const token = `!${sh.title}`;
+                        if (userExpandedText.includes(token)) {
+                            userExpandedText += `\n\n---\n\`\`\`additional note: !${sh.title}\n${sh.text}\n\`\`\``;
+                        }
+                    });
+                }
+
+                // 3. [단축어 포함 전체 길이 기준 예산 산출]: 유저본문 + 단축어 공간을 먼저 100% 확보하고 남은 공간에만 로어 조립
+                const chatId = getChatId();
+                const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
+                const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
+
+                // 4. [원문 긴급 비상 백업] (어떤 오류가 발생해도 글이 날아가지 않도록 즉시 로컬 백업)
+                localStorage.setItem('pastel_last_sent_backup', rawInput);
+
+                // 5. [ProseMirror 가상 클립보드 트랜잭션 주입]: 내부 State에 2,000자 완벽 안착 (빈 공백 전송 100% 차단)
+                const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
+                if (editor) {
+                    editor.focus();
+
+                    // 전체 선택
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(editor);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    // 1순위: execCommand 가상 붙여넣기 (React/ProseMirror State가 100% 인식)
+                    let success = false;
+                    try {
+                        success = document.execCommand('insertText', false, finalPayloadMessage);
+                    } catch (_) {}
+
+                    // 2순위: DataTransfer 클립보드 붙여넣기 시뮬레이션
+                    if (!success || !editor.textContent.trim()) {
+                        try {
+                            const dt = new DataTransfer();
+                            dt.setData('text/plain', finalPayloadMessage);
+                            const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                            editor.dispatchEvent(pasteEvt);
+                        } catch (_) {}
+                    }
+
+                    // 3순위: DOM 단락 주입 및 트랜잭션 InputEvent 발송
+                    if (!editor.textContent.trim()) {
+                        const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+                        editor.innerHTML = paragraphs;
+                    }
+
+                    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                    editor.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                // 6. 에디터에 텍스트가 정상 채워졌는지 검증 후 순정 전송 버튼 클릭 및 실시간 턴수 +1 카운트
+                isInternalSending = true;
+                setTimeout(() => {
+                    const nativeBtn = slot.querySelector('button');
+                    if (nativeBtn) {
+                        nativeBtn.removeAttribute('disabled');
+                        nativeBtn.click();
+                        // 전송 후 실제 유저 발화수만 정밀하게 재집계하여 동기화 (수동 +1 가산 영구 제거)
+                        setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
+
+                        textarea.value = '';
+                        updateSendButtonColor();
+                    } else {
+                        showToast("❌ 크랙 순정 전송 버튼 탐색 실패");
+                    }
+                    isInternalSending = false;
+                }, 80);
+            }, true); // Capture phase로 이벤트 최우선 가로채기
+        }
     }
 
     /* ==========================================================================
