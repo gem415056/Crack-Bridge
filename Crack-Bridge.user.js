@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.4.0
+// @version      2.4.1
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -625,11 +625,11 @@
             overflow: visible !important;
         }
 
-        /* 4. [모델선택 + 전송 버튼 세트]: 우측 20px 대칭 및 bottom: 23px 완벽 안착 */
+        /* 4. [모델선택 + 전송 버튼 세트]: 찌그러짐 해제(fixed) 및 왼쪽 단축어 버튼(20px)과 100% 대칭 안착 */
         .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
-            position: absolute !important;
+            position: fixed !important;
             bottom: 23px !important;
-            right: 20px !important;
+            right: calc(50% - 380px + 20px) !important;
             z-index: 10005 !important;
             pointer-events: auto !important;
             display: flex !important;
@@ -638,6 +638,11 @@
             height: 28px !important;
             margin: 0 !important;
             transform: none !important;
+        }
+        @media (max-width: 768px) {
+            .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
+                right: 52px !important; /* 모바일 입력창 테두리 기준 정확히 20px 안쪽 대칭 */
+            }
         }
 
         /* 크랙 하단 부모 컨테이너: gap-4와 py-4를 0으로 강제하여 유령 공백 0px 밀착 */
@@ -2449,7 +2454,7 @@
 
             localStorage.setItem('pastel_last_sent_backup', rawInput);
 
-            // 4. ProseMirror 에디터에 글 주입 (첫 번째 원본 파일 100% 원형 복원)
+            // 4. ProseMirror 에디터에 글 주입 (개행 뻥튀기 유발하는 중복 paste 이벤트 제거 및 1:1 클린 주입)
             const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
             if (editor) {
                 editor.focus();
@@ -2460,29 +2465,21 @@
                 sel.removeAllRanges();
                 sel.addRange(range);
 
-                // 1순위: execCommand 가상 붙여넣기 (첫 번째 파일의 정상 작동 방식 원형 복원)
+                // \r\n 개행 정규화 (CRLF 중복 인식 원천 차단)
+                const cleanPayload = finalPayloadMessage.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
                 let success = false;
                 try {
-                    success = document.execCommand('insertText', false, finalPayloadMessage);
+                    success = document.execCommand('insertText', false, cleanPayload);
                 } catch (_) {}
 
-                // 2순위: DataTransfer 클립보드 붙여넣기 시뮬레이션
+                // 실패 시 폴백 주입
                 if (!success || !editor.textContent.trim()) {
-                    try {
-                        const dt = new DataTransfer();
-                        dt.setData('text/plain', finalPayloadMessage);
-                        const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-                        editor.dispatchEvent(pasteEvt);
-                    } catch (_) {}
-                }
-
-                // 3순위: DOM 단락 주입 및 트랜잭션 InputEvent 발송
-                if (!editor.textContent.trim()) {
-                    const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+                    const paragraphs = cleanPayload.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
                     editor.innerHTML = paragraphs;
                 }
 
-                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
+                // [엔터 뻥튀기 방어]: 줄바꿈을 한 번 더 불리던 insertFromPaste 이벤트를 제거하고, 순수 State 갱신 이벤트만 단일 발송
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
                 editor.dispatchEvent(new Event('change', { bubbles: true }));
 
@@ -2490,7 +2487,7 @@
                 const isContentReady = editor.textContent && editor.textContent.trim().length > 0;
                 if (!isContentReady) {
                     showToast("⚠️ 에디터 입력 처리 중... 1초 후 다시 전송을 눌러주세요.");
-                    return; // 글이 안 채워졌으면 전송 차단하여 크래커 손실 0% 방어
+                    return;
                 }
             }
 
@@ -5971,228 +5968,5 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
 
     // SPA 라우팅으로 헤더가 새로 렌더링되어도 즉시 버튼을 복원하도록 0.5초 주기로 감시
     setInterval(checkAndInject, 500);
-
-    /* ==========================================================================
-     * [모바일 전용 긴급 진단 엔진]: 실시간 에러 캡처 & DOM/클래스 전수 덤프 플로팅 도구
-     * ========================================================================== */
-    (function initMobileDiagnostics() {
-        const diagLogs = [];
-        const startTime = new Date().toISOString();
-
-        function addDiagLog(type, msg, detail) {
-            const time = new Date().toLocaleTimeString();
-            diagLogs.push({ time, type, msg, detail: detail || '' });
-            if (diagLogs.length > 50) diagLogs.shift();
-        }
-
-        // 1. 전역 런타임 에러 및 콘솔 에러 실시간 가로채기
-        window.addEventListener('error', (e) => {
-            addDiagLog('RUNTIME_ERROR', e.message, `${e.filename}:${e.lineno}:${e.colno}`);
-        }, true);
-
-        window.addEventListener('unhandledrejection', (e) => {
-            addDiagLog('PROMISE_REJECTION', e.reason?.message || String(e.reason), e.reason?.stack || '');
-        }, true);
-
-        const origConsoleError = console.error;
-        console.error = function(...args) {
-            try {
-                const str = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-                addDiagLog('CONSOLE_ERROR', str.slice(0, 500));
-            } catch (_) {}
-            return origConsoleError.apply(this, args);
-        };
-
-        // 2. 현재 페이지의 모든 DOM 클래스 및 UI 요소 전수 스캔(Full Dump)
-        function generateFullPageDump() {
-            const url = location.href;
-            const title = document.title;
-            const allElements = document.querySelectorAll('*');
-            
-            // A. 페이지 내 존재하는 모든 순수 고유 클래스 수집 (추측 배제)
-            const classSet = new Set();
-            allElements.forEach(el => {
-                if (el.classList && el.classList.length > 0) {
-                    el.classList.forEach(c => {
-                        const trimmed = c.trim();
-                        if (trimmed && !trimmed.startsWith('ep-') && !trimmed.startsWith('pastel-')) {
-                            classSet.add(trimmed);
-                        }
-                    });
-                }
-            });
-            const sortedClasses = Array.from(classSet).sort();
-
-            // B. 핵심 UI 후보군 요소들 전수 발굴 (입력창, 에디터, 폼, 버튼, 헤더 등)
-            const candidateList = [];
-            allElements.forEach(el => {
-                const tag = el.tagName.toLowerCase();
-                const cls = el.className && typeof el.className === 'string' ? el.className.trim() : '';
-                const role = el.getAttribute('role') || '';
-                const isEditable = el.getAttribute('contenteditable') === 'true';
-                const placeholder = el.getAttribute('placeholder') || '';
-                const id = el.id || '';
-
-                const isCoreCandidate = (
-                    tag === 'textarea' ||
-                    tag === 'input' ||
-                    tag === 'form' ||
-                    isEditable ||
-                    tag === 'button' ||
-                    tag === 'header' ||
-                    tag === 'nav' ||
-                    tag === 'main' ||
-                    cls.includes('editor') ||
-                    cls.includes('ProseMirror') ||
-                    cls.includes('chat') ||
-                    cls.includes('message') ||
-                    cls.includes('input') ||
-                    cls.includes('header') ||
-                    cls.includes('bottom') ||
-                    cls.includes('footer') ||
-                    cls.includes('screen') ||
-                    cls.includes('scroll')
-                );
-
-                if (isCoreCandidate && !id.startsWith('ep-') && !cls.includes('ep-')) {
-                    let textSample = (el.innerText || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
-                    candidateList.push({
-                        tag,
-                        id: id ? `#${id}` : '',
-                        classes: cls ? `.${cls.split(/\s+/).join('.')}` : '',
-                        role: role ? `[role="${role}"]` : '',
-                        editable: isEditable ? '[contenteditable="true"]' : '',
-                        placeholder: placeholder ? `[placeholder="${placeholder}"]` : '',
-                        sample: textSample ? `Text: "${textSample}"` : ''
-                    });
-                }
-            });
-
-            // C. 텍스트 덤프 조립
-            let dump = `=========================================\n`;
-            dump += `[PASTELchat 모바일 긴급 DOM/에러 전수 진단서]\n`;
-            dump += `일시: ${new Date().toLocaleString()} (스크립트 로드: ${startTime})\n`;
-            dump += `URL: ${url}\n`;
-            dump += `문서 제목: ${title}\n`;
-            dump += `총 DOM 노드 수: ${allElements.length}개 / 고유 클래스 수: ${sortedClasses.length}개\n`;
-            dump += `=========================================\n\n`;
-
-            dump += `[1. 수집된 실시간 런타임/콘솔 에러 로그 (${diagLogs.length}건)]\n`;
-            if (diagLogs.length === 0) {
-                dump += `(현재 포착된 런타임 자바스크립트 오류가 없습니다. DOM 구조가 변경되어 렌더링에 실패했을 가능성이 높습니다.)\n\n`;
-            } else {
-                diagLogs.forEach((l, idx) => {
-                    dump += `[#${idx + 1}] [${l.time}] [${l.type}]\n메시지: ${l.msg}\n상세: ${l.detail}\n---\n`;
-                });
-                dump += `\n`;
-            }
-
-            dump += `[2. 핵심 UI 후보군 요소 구조 분석 (${candidateList.length}건 추출)]\n`;
-            candidateList.slice(0, 150).forEach((c, idx) => {
-                dump += `${idx + 1}. <${c.tag}${c.id}${c.role}${c.editable}${c.placeholder}>\n   Class: ${c.classes || '(없음)'}\n   ${c.sample}\n`;
-            });
-            dump += `\n`;
-
-            dump += `[3. 페이지 내 전수 고유 클래스명 목록 (${sortedClasses.length}개)]\n`;
-            dump += sortedClasses.join('\n');
-            dump += `\n\n================ [진단서 끝] ================\n`;
-
-            return dump;
-        }
-
-        // 3. 모바일 화면 플로팅 버튼 생성 및 최상단 주입
-        function createDiagnosticFloatingButton() {
-            if (document.getElementById('ep-mobile-diag-btn')) return;
-
-            const btn = document.createElement('button');
-            btn.id = 'ep-mobile-diag-btn';
-            btn.type = 'button';
-            btn.innerHTML = `🩺 <strong>진단 복사</strong>`;
-            btn.style.cssText = `
-                position: fixed !important;
-                top: 12px !important;
-                right: 12px !important;
-                z-index: 2147483647 !important;
-                background: #FF4757 !important;
-                color: #ffffff !important;
-                border: 2px solid #ffffff !important;
-                border-radius: 9999px !important;
-                padding: 10px 16px !important;
-                font-size: 13px !important;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-                font-weight: 800 !important;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
-                cursor: pointer !important;
-                user-select: none !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: 6px !important;
-                transition: transform 0.15s, background-color 0.2s !important;
-            `;
-
-            btn.onclick = async (e) => {
-                e.stopPropagation();
-                btn.style.transform = 'scale(0.92)';
-                btn.innerHTML = `⏳ <strong>스캔 중...</strong>`;
-
-                setTimeout(async () => {
-                    try {
-                        const dumpText = generateFullPageDump();
-
-                        // 1순위: Clipboard API
-                        let copied = false;
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            try {
-                                await navigator.clipboard.writeText(dumpText);
-                                copied = true;
-                            } catch (_) {}
-                        }
-
-                        // 2순위: 임시 Textarea 폴백 (모바일 브라우저 클립보드 호환 보장)
-                        if (!copied) {
-                            const ta = document.createElement('textarea');
-                            ta.value = dumpText;
-                            ta.style.position = 'fixed';
-                            ta.style.top = '-9999px';
-                            ta.style.left = '-9999px';
-                            document.body.appendChild(ta);
-                            ta.focus();
-                            ta.select();
-                            copied = document.execCommand('copy');
-                            document.body.removeChild(ta);
-                        }
-
-                        if (copied) {
-                            btn.style.background = '#2ED573';
-                            btn.innerHTML = `✅ <strong>복사 완료!</strong>`;
-                            showToast("📋 진단서가 복사되었습니다! 채팅창에 그대로 붙여넣어 주세요.");
-                        } else {
-                            throw new Error("클립보드 접근 권한 오류");
-                        }
-                    } catch (err) {
-                        btn.style.background = '#FFA502';
-                        btn.innerHTML = `⚠️ <strong>복사 실패</strong>`;
-                        alert("복사에 실패했습니다. 브라우저 클립보드 권한을 확인해주세요.");
-                    } finally {
-                        setTimeout(() => {
-                            btn.style.transform = 'none';
-                            btn.style.background = '#FF4757';
-                            btn.innerHTML = `🩺 <strong>진단 복사</strong>`;
-                        }, 2500);
-                    }
-                }, 100);
-            };
-
-            (document.body || document.documentElement).appendChild(btn);
-        }
-
-        // 초기 실행 및 재주입 상시 보장
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', createDiagnosticFloatingButton);
-        } else {
-            createDiagnosticFloatingButton();
-        }
-        setInterval(createDiagnosticFloatingButton, 1000);
-    })();
 
 })();
