@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.8
+// @version      2.3.9
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -151,12 +151,12 @@
             padding-top: 108px !important;
         }
 
-        /* 단축구슬 6개 전용 무음 가로 스크롤 컨테이너 (스크롤바 완전 은닉) */
+        /* 단축구슬 5개 전용 무음 가로 스크롤 컨테이너 (비좁음 해소 & 5개 노출) */
         .ep-symbol-scroll-box {
             display: flex;
             gap: 6px;
             align-items: center;
-            max-width: 188px; /* 딱 6개 구슬 크기 */
+            max-width: 156px; /* 딱 5개 구슬 크기 */
             overflow-x: auto;
             overflow-y: hidden;
             scrollbar-width: none !important; /* Firefox */
@@ -619,10 +619,10 @@
             box-shadow: none !important;
         }
 
-        /* 4. [모델선택 + 전송 버튼 세트]: 왼쪽 단축어 버튼(20px)과 100% 대칭되는 우측 20px 안착 */
+        /* 4. [모델선택 + 전송 버튼 세트]: 5px 상향(bottom: 23px) 및 우측 20px 대칭 완성 */
         .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
             position: absolute !important;
-            bottom: 18px !important;
+            bottom: 23px !important;
             right: 20px !important;
             z-index: 10005 !important;
             pointer-events: auto !important;
@@ -2442,28 +2442,18 @@
 
             localStorage.setItem('pastel_last_sent_backup', rawInput);
 
-            // 4. ProseMirror 에디터에 글 주입
+            // 4. ProseMirror 에디터에 글 주입 (엔터 뻥튀기 원천 방어: 1:1 클린 단락 매핑)
             const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
             if (editor) {
                 editor.focus();
 
-                const sel = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(editor);
-                sel.removeAllRanges();
-                sel.addRange(range);
+                // 개행 뻥튀기의 원인인 insertText를 배제하고, 원문 엔터 구조를 1:1 단락으로 직접 매핑
+                const cleanText = finalPayloadMessage.replace(/\r\n/g, '\n');
+                const paragraphs = cleanText.split('\n').map(line => `<p>${line ? line : '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+                editor.innerHTML = paragraphs;
 
-                let success = false;
-                try {
-                    success = document.execCommand('insertText', false, finalPayloadMessage);
-                } catch (_) {}
-
-                if (!success || !editor.textContent.trim()) {
-                    const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
-                    editor.innerHTML = paragraphs;
-                }
-
-                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
+                // Tiptap/ProseMirror State 실시간 동기화 트랜잭션 발송
+                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: cleanText }));
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
                 editor.dispatchEvent(new Event('change', { bubbles: true }));
 
@@ -2471,7 +2461,7 @@
                 const isContentReady = editor.textContent && editor.textContent.trim().length > 0;
                 if (!isContentReady) {
                     showToast("⚠️ 에디터 입력 처리 중... 1초 후 다시 전송을 눌러주세요.");
-                    return; // 텍스트가 안 채워졌으면 절대로 전송하지 않아 500원 낭비 원천 차단!
+                    return; // 글이 안 채워졌으면 전송 차단하여 크래커 손실 0% 방어
                 }
             }
 
