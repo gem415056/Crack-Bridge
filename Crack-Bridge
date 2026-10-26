@@ -53,6 +53,9 @@
     try {
         window.addEventListener('error', (event) => {
             try {
+                // 외부 호스트/애널리틱스의 무의미한 CORS Script error 필터링
+                if ((event.message === 'Script error.' || !event.message) && !event.filename) return;
+
                 pastelRuntimeLogs.errors.push({
                     type: 'window.onerror',
                     message: event.message || String(event),
@@ -613,7 +616,11 @@
             font-weight: bold !important;
         }
 
-        /* 크랙 하단 입력바 내부의 순정 ProseMirror 에디터 영역 숨김 (순정 전송버튼과 모델선택버튼은 안전 보존) */
+        /* 크랙 하단 입력바 내부의 순정 ProseMirror 에디터 영역 숨김 (파스텔 입력창이 대신 화면을 전담) */
+        .chat-footer-control ~ .ProseMirror,
+        .chat-footer-control ~ [contenteditable="true"],
+        form:has(.chat-footer-control) .ProseMirror,
+        form:has(.chat-footer-control) [contenteditable="true"],
         .bg-bg_screen.pointer-events-auto .ProseMirror,
         .bg-bg_screen.pointer-events-auto [contenteditable="true"],
         .bg-bg_screen.pointer-events-auto p.text-xs,
@@ -629,7 +636,8 @@
             position: absolute !important;
         }
 
-        /* 크랙 순정 잔여 래퍼 숨김 (chat-footer-control 외의 형제 래퍼) */
+        /* 크랙 순정 잔여 래퍼 숨김 (chat-footer-control 및 전송 버튼 외의 잔여 요소) */
+        form:has(.chat-footer-control) > div:not(.chat-footer-control):not(:has(#ep-native-send-slot)),
         .bg-bg_screen.pointer-events-auto > div:not(.chat-footer-control) {
             display: none !important;
             height: 0 !important;
@@ -639,7 +647,9 @@
             pointer-events: none !important;
         }
 
-        /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 (상단 패딩 0 강제) */
+        /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 */
+        form:has(.chat-footer-control),
+        div:has(> .chat-footer-control),
         .bg-bg_screen.pointer-events-auto,
         .flex.flex-col.w-\\[calc\\(100\\%-40px\\)\\],
         .max-w-\\[768px\\].py-4 {
@@ -647,12 +657,12 @@
             bottom: 0 !important;
             left: 50% !important;
             transform: translateX(-50%) !important;
-            max-width: 760px !important;
-            width: calc(100% - 64px) !important;
+            max-width: 768px !important;
+            width: calc(100% - 24px) !important;
             padding-top: 0 !important;
             padding-bottom: 10px !important;
             margin: 0 !important;
-            background-color: var(--bg_screen, #ffffff) !important;
+            background-color: transparent !important;
             z-index: 2147483590 !important;
             pointer-events: auto !important;
             overflow: visible !important;
@@ -717,7 +727,7 @@
             border: 1px solid #E6E6E6;
             border-radius: 12px;
             background-color: #fafafa;
-            padding: 12px 14px 8px 14px !important;
+            padding: 10px 10px 6px 10px !important;
             box-sizing: border-box;
             transition: border-color 0.2s, background-color 0.2s;
             position: relative !important;
@@ -727,7 +737,7 @@
         .input-area:focus-within {
             border: 2px solid #888888 !important;
             background-color: #ffffff !important;
-            padding: 11px 13px 7px 13px !important;
+            padding: 9px 9px 5px 9px !important;
         }
         body[data-theme="dark"] .input-area {
             background-color: #1a1918;
@@ -758,9 +768,11 @@
         /* [단축구슬 8종 컨테이너]: 스크롤 없이 8개 전체가 한 번에 정갈하게 노출 */
         .scrollable-beads-wrapper {
             display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
             align-items: center !important;
             justify-content: flex-start !important;
-            gap: 4px !important;
+            gap: 3px !important;
             flex: 0 1 auto !important;
             min-width: 0 !important;
             overflow: visible !important;
@@ -796,12 +808,12 @@
             background-color: #fcfcfc;
             border: 1px solid #B0B0B0;
             color: var(--text_primary);
-            width: 25px !important;
-            height: 25px !important;
-            min-width: 25px !important;
-            min-height: 25px !important;
-            max-width: 25px !important;
-            max-height: 25px !important;
+            width: 24px !important;
+            height: 24px !important;
+            min-width: 24px !important;
+            min-height: 24px !important;
+            max-width: 24px !important;
+            max-height: 24px !important;
             border-radius: 50% !important;
             font-size: 14px;
             display: inline-flex !important;
@@ -880,16 +892,8 @@
             justify-content: center !important;
             visibility: visible !important;
             opacity: 1 !important;
-            width: 28px !important;
-            height: 28px !important;
-            min-width: 28px !important;
-            min-height: 28px !important;
-            border-radius: 50% !important;
-            background-color: #7c3aed !important;
-            border: none !important;
             margin: 0 !important;
             padding: 0 !important;
-            box-shadow: 0 1px 4px rgba(124, 58, 237, 0.35) !important;
             transition: transform 0.1s, opacity 0.2s !important;
         }
 
@@ -2648,11 +2652,59 @@
         } catch (_) {}
     }
 
+    // [크랙 하단 입력 컨테이너 정밀 탐색기]: 클래스명 변경에 영향을 받지 않는 다계층 탐색
+    function findCrackInputWrapper() {
+        // 1. ProseMirror 또는 contenteditable 에디터로부터 부모 래퍼 역추적 (가장 확실함)
+        const editor = document.querySelector('.ProseMirror, [contenteditable="true"]');
+        if (editor) {
+            const form = editor.closest('form');
+            if (form) return form;
+
+            let cur = editor.parentElement;
+            while (cur && cur !== document.body && cur !== document.documentElement) {
+                // 버튼이 포함되어 있고 유의미한 높이를 가진 하단 바 컨테이너
+                if (cur.querySelector('button') && cur.offsetHeight >= 24) {
+                    return cur;
+                }
+                cur = cur.parentElement;
+            }
+            return editor.parentElement?.parentElement || editor.parentElement;
+        }
+
+        // 2. 폼(form) 요소 탐색
+        const forms = document.querySelectorAll('form');
+        for (const f of forms) {
+            if (!f.closest('#ep-chat-right-drawer') && (f.querySelector('button') || f.querySelector('textarea') || f.querySelector('[contenteditable]'))) {
+                return f;
+            }
+        }
+
+        // 3. 하단 바 클래스 다중 폴백
+        const candidates = [
+            '.bg-bg_screen.pointer-events-auto',
+            '.bg-bg_screen',
+            '[class*="bg_screen"]',
+            '.pointer-events-auto',
+            '.max-w-\\[768px\\].py-4',
+            '.max-w-\\[768px\\]',
+            'div[class*="fixed"][class*="bottom"]',
+            'div[class*="sticky"][class*="bottom"]',
+            '[class*="chat-input"]',
+            'footer'
+        ];
+
+        for (const sel of candidates) {
+            const el = document.querySelector(sel);
+            if (el && el.offsetHeight >= 20 && !el.classList.contains('chat-footer-control')) {
+                return el;
+            }
+        }
+
+        return null;
+    }
+
     function injectCustomInputBox() {
-        // 크랙의 하단 입력 영역 컨테이너 안전 탐색
-        const crackInputWrapper = document.querySelector('.bg-bg_screen.pointer-events-auto') || 
-                                 document.querySelector('.pointer-events-auto') ||
-                                 document.querySelector('.max-w-\\[768px\\].py-4');
+        const crackInputWrapper = findCrackInputWrapper();
         if (!crackInputWrapper) return;
 
         if (document.getElementById('ep-chat-input-textarea')) {
@@ -2705,13 +2757,13 @@
                         <!-- (2) 행동 지문 (*) -->
                         <button class="tool-btn ep-symbol-btn" data-open="*" type="button" title="행동 지문">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/>
+                                <path d="M12 4v16M5.07 8l13.86 8M5.07 16l13.86-8"/>
                             </svg>
                         </button>
                         <!-- (3) 말줄임표 (…) : 점 3개 -->
                         <button class="tool-btn ep-symbol-btn" data-open="…" type="button" title="말줄임표">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#888888" stroke="none">
-                                <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>
+                                <circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/>
                             </svg>
                         </button>
                         <!-- (4) 엠대쉬 (—) -->
@@ -2723,25 +2775,25 @@
                         <!-- (5) 백틱 (\`) -->
                         <button class="tool-btn ep-symbol-btn" data-open="&#96;" type="button" title="백틱">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 7l-4 5"/>
+                                <path d="M14 8l-4 6"/>
                             </svg>
                         </button>
                         <!-- (6) 소괄호 () -->
                         <button class="tool-btn ep-symbol-btn" data-open="(" data-close=")" type="button" title="소괄호">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M8 21s-4-3-4-9 4-9 4-9"/><path d="M16 3s4 3 4 9-4 9-4 9"/>
+                                <path d="M9 5c-3.5 3.5-3.5 10.5 0 14M15 5c3.5 3.5 3.5 10.5 0 14"/>
                             </svg>
                         </button>
                         <!-- (7) 대괄호 [] -->
                         <button class="tool-btn ep-symbol-btn" data-open="[" data-close="]" type="button" title="대괄호">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M16 3h3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-3"/><path d="M8 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3"/>
+                                <path d="M10 5H6v14h4M14 5h4v14h-4"/>
                             </svg>
                         </button>
                         <!-- (8) OOC -->
                         <button class="tool-btn ep-symbol-btn" data-open="(OOC：" data-close=")" type="button" title="OOC">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
                             </svg>
                         </button>
                     </div>
@@ -2762,52 +2814,81 @@
     /* ==========================================================================
      * 크랙 순정 전송 버튼 정밀 탐색 및 슬롯 1:1 영구 안착 엔진 (순정 전송버튼만 단독 상시 노출)
      * ========================================================================== */
+    function isValidCrackNativeBtn(b) {
+        if (!b) return false;
+        if (b.classList.contains('tool-btn')) return false;
+        if (b.closest('#ep-chat-right-drawer')) return false;
+        if (b.closest('.chat-info-header')) return false;
+        if (b.closest('.toolbar-fixed-left')) return false;
+        if (b.closest('#ep-scrollable-beads-container')) return false;
+        if (b.id && (b.id.startsWith('ep-') || b.id.startsWith('pastel-'))) {
+            return false;
+        }
+        return true;
+    }
+
     function findCrackNativeSendButton() {
         let nativeSendBtn = null;
 
-        // 1. 순정 전송 버튼 SVG 탐색 (M18.77 11.13 또는 18.77 포함 패스)
-        const pathList = document.querySelectorAll('svg path');
+        // 0. 슬롯 내부에 이미 안착되어 있는 경우 확인
+        const slot = document.getElementById('ep-native-send-slot');
+        if (slot) {
+            const slotChild = slot.querySelector('button');
+            if (slotChild && isValidCrackNativeBtn(slotChild)) {
+                return slotChild;
+            }
+        }
+
+        const wrapper = findCrackInputWrapper();
+
+        // 1. 크랙 입력 래퍼 내부에서 type="submit" 또는 aria-label 전송 버튼 우선 탐색
+        if (wrapper) {
+            const submitBtn = wrapper.querySelector('button[type="submit"]');
+            if (submitBtn && isValidCrackNativeBtn(submitBtn)) return submitBtn;
+
+            const ariaBtn = wrapper.querySelector('button[aria-label*="전송"], button[aria-label*="send" i], button[aria-label*="Send"]');
+            if (ariaBtn && isValidCrackNativeBtn(ariaBtn)) return ariaBtn;
+
+            // 래퍼 내부의 유효한 버튼들 중 SVG가 있는 버튼 탐색
+            const btns = Array.from(wrapper.querySelectorAll('button')).filter(isValidCrackNativeBtn);
+            for (let i = btns.length - 1; i >= 0; i--) {
+                if (btns[i].querySelector('svg')) return btns[i];
+            }
+            if (btns.length > 0) return btns[btns.length - 1];
+        }
+
+        // 2. 전체 DOM에서 전송 관련 SVG 아이콘 패스 탐색 (종이비행기, 화살표 등 전송 심볼)
+        const pathList = document.querySelectorAll('svg path, svg polygon, svg polyline');
         for (const p of pathList) {
-            const d = p.getAttribute('d') || '';
-            if (d.startsWith('M18.77') || d.includes('18.77 11.13') || d.includes('18.77') || d.includes('M2.01 21L23 12')) {
+            const d = p.getAttribute('d') || p.getAttribute('points') || '';
+            if (d.includes('18.77') || d.includes('2.01 21') || d.includes('22 2') || d.includes('3.478') || (d.includes('12 19') && d.includes('5 12')) || (d.includes('12 5') && d.includes('5 12')) || d.includes('M2.01')) {
                 const btn = p.closest('button');
-                if (btn && btn.id !== 'ep-chat-send-btn' && !btn.closest('#ep-chat-right-drawer') && !btn.classList.contains('tool-btn')) {
+                if (btn && isValidCrackNativeBtn(btn)) {
                     nativeSendBtn = btn;
                     break;
                 }
             }
         }
 
-        // 2. 폴백: aria-label 및 submit 버튼
+        // 3. 폴백: aria-label 및 submit 버튼 전체 탐색
         if (!nativeSendBtn) {
             const candidates = document.querySelectorAll('button[aria-label*="전송"], button[aria-label*="send" i], button[type="submit"]');
             for (const b of candidates) {
-                if (b.id !== 'ep-chat-send-btn' && !b.closest('#ep-chat-right-drawer') && !b.classList.contains('tool-btn')) {
+                if (isValidCrackNativeBtn(b)) {
                     nativeSendBtn = b;
                     break;
                 }
             }
         }
 
-        // 3. 폴백: 원형 primary 전송 버튼 탐색
+        // 4. 폴백: 원형 primary 전송 버튼 탐색
         if (!nativeSendBtn) {
             const primaryBtns = document.querySelectorAll('button.bg-primary.rounded-full, button.rounded-full[class*="bg-primary"], button[class*="bg-primary"], button.rounded-full');
             for (const b of primaryBtns) {
-                if (b.id !== 'ep-chat-send-btn' && !b.closest('#ep-chat-right-drawer') && !b.closest('.chat-footer-control') && !b.classList.contains('tool-btn')) {
-                    if (b.querySelector('svg')) {
-                        nativeSendBtn = b;
-                        break;
-                    }
+                if (isValidCrackNativeBtn(b) && b.querySelector('svg')) {
+                    nativeSendBtn = b;
+                    break;
                 }
-            }
-        }
-
-        // 4. 슬롯 내부에 이미 안착되어 있는 경우 확인
-        if (!nativeSendBtn) {
-            const slot = document.getElementById('ep-native-send-slot');
-            const slotChild = slot?.querySelector('button:not(#ep-native-send-proxy-btn)');
-            if (slotChild) {
-                nativeSendBtn = slotChild;
             }
         }
 
@@ -2892,6 +2973,16 @@
                 // 4. 순정 버튼 전송 액션 파이프라인 연동
                 bindSendActionToButton(nativeSendBtn);
             }
+
+            // 5. [사용자 요청 구현]: 기존 크랙 입력창 내부 요소는 hidden 처리하고 딱 순정 전송버튼만 온전히 노출
+            const wrapper = findCrackInputWrapper();
+            if (wrapper) {
+                Array.from(wrapper.children).forEach(child => {
+                    if (!child.classList.contains('chat-footer-control') && !child.contains(slot)) {
+                        child.style.setProperty('display', 'none', 'important');
+                    }
+                });
+            }
         } catch (err) {
             console.warn("[PASTEL] maintainCrackNativeInput error:", err);
         }
@@ -2904,7 +2995,7 @@
 
     function bindNativeSendButton() {
         const slot = document.getElementById('ep-native-send-slot');
-        const btn = slot?.querySelector('button:not(#ep-native-send-proxy-btn)') || findCrackNativeSendButton();
+        const btn = slot?.querySelector('button') || findCrackNativeSendButton();
         if (btn) bindSendActionToButton(btn);
     }
 
@@ -3097,8 +3188,8 @@
             container.innerHTML = `
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <div style="background: #27272a; padding: 10px; border-radius: 8px;">
-                        <strong style="color: #a78bfa;">1. 순정 전송 버튼 (M18.77)</strong>: ${slotBtn ? '<span style="color:#4ade80;">✅ 슬롯 상시 안착 완료</span>' : '<span style="color:#f87171;">❌ 미발견</span>'}
-                        ${slotBtn ? `<div>슬롯 안착: <span style="color:#4ade80;">✅ 유지 중</span> / type: ${slotBtn.id === 'ep-native-send-proxy-btn' ? '순정호환 엔진' : '순정 DOM'} / visible: ${slotBtn.offsetParent !== null}</div>` : ''}
+                        <strong style="color: #a78bfa;">1. 크랙 순정 전송 버튼</strong>: ${slotBtn ? '<span style="color:#4ade80;">✅ 슬롯 상시 안착 완료</span>' : '<span style="color:#f87171;">❌ 미발견</span>'}
+                        ${slotBtn ? `<div>슬롯 안착: <span style="color:#4ade80;">✅ 유지 중</span> / type: 순정 DOM 버튼 / visible: ${slotBtn.offsetParent !== null}</div>` : ''}
                     </div>
 
                     <div style="background: #27272a; padding: 10px; border-radius: 8px;">
@@ -3159,14 +3250,14 @@
             }
         }
 
-        const report = `# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서 (v2.2.8)
+        const report = `# 🐞 PASTELchat × CRACK 모바일 런타임 진단 보고서 (v2.3.1)
 - 생성시각: ${new Date().toLocaleString()}
 - 접속 URL: ${window.location.href}
 - Chat ID: ${getChatId()}
 - User Agent: ${navigator.userAgent}
 
 ## 1. DOM 및 순정 버튼 탐색 결과
-- 순정 전송버튼 (M18.77): ${slotBtn ? `✅ 슬롯 안착 유지 (visible: ${slotBtn.offsetParent !== null}, type: ${slotBtn.id === 'ep-native-send-proxy-btn' ? '순정호환' : '순정DOM'})` : '❌ 미발견'}
+- 순정 전송버튼: ${slotBtn ? `✅ 슬롯 안착 유지 (visible: ${slotBtn.offsetParent !== null}, type: 순정 DOM)` : '❌ 미발견'}
 - 파스텔 입력창(textarea): ${textarea ? '✅ 정상' : '❌ 미발견'}
 - 단축구슬 8종 (무스크롤 일괄 노출): ${beads.length === 8 ? `✅ 8개 전체 노출 정상 (너비: ${scrollContainer ? scrollContainer.offsetWidth : 0}px)` : `⚠️ ${beads.length}개 노출`}
 - 툴바 위 차단 레이어 Hit-Test: ${blockingInfo}
@@ -3566,7 +3657,7 @@ ${pastelRuntimeLogs.requests.slice(-8).map(r => `- [${r.time}] ${r.url}`).join('
         const tplPanel = document.getElementById('ep-tpl-quick-panel');
 
         // [텍스트 입력 최적화]: 입력 중 동기 DOM 변이 완전 제거 (디바운스 350ms 비동기 동기화로 입력 렉 0초 보장)
-        let typingSyncTimer = null;
+        // [텍스트 입력 극대화]: 입력 중 ProseMirror/외부 DOM 조작 0회 -> 120fps 네이티브 부드러운 타이핑 보장
         if (textarea && textarea.dataset.pastelBound !== 'true') {
             textarea.dataset.pastelBound = 'true';
             textarea.addEventListener('keydown', (e) => {
@@ -3582,20 +3673,14 @@ ${pastelRuntimeLogs.requests.slice(-8).map(r => `- [${r.time}] ${r.url}`).join('
             textarea.addEventListener('keyup', (e) => e.stopPropagation());
             textarea.addEventListener('input', (e) => {
                 e.stopPropagation();
-                clearTimeout(typingSyncTimer);
-                typingSyncTimer = setTimeout(() => {
-                    syncTextToNativeEditor(textarea.value);
-                    const nativeBtn = findCrackNativeSendButton();
-                    if (nativeBtn && textarea.value.trim().length > 0) {
-                        nativeBtn.removeAttribute('disabled');
-                        nativeBtn.disabled = false;
-                    }
-                }, 350);
+                // 타이핑 중에는 순정 버튼 활성화 상태만 가볍게 갱신 (ProseMirror 변이 0회 -> 입력 렉 원천 차단)
+                const nativeBtn = findCrackNativeSendButton();
+                if (nativeBtn && textarea.value.trim().length > 0) {
+                    nativeBtn.removeAttribute('disabled');
+                    nativeBtn.disabled = false;
+                }
             });
-            textarea.addEventListener('change', (e) => {
-                e.stopPropagation();
-                syncTextToNativeEditor(textarea.value);
-            });
+            textarea.addEventListener('change', (e) => e.stopPropagation());
         }
 
         const handleToolAction = (btn) => {
@@ -6627,23 +6712,9 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
             }
         }
 
-        // 프록시 버튼인 경우 생성 상태에 따라 아이콘 정밀 동기화 (생성 중이면 정지 사각, 대기 중이면 전송 화살표)
+        // 구형 프록시 버튼 잔여물이 있다면 즉시 제거
         const proxyBtn = document.getElementById('ep-native-send-proxy-btn');
-        if (proxyBtn) {
-            if (currentHasStop) {
-                proxyBtn.title = '답변 생성 중지';
-                if (!proxyBtn.dataset.isStopIcon) {
-                    proxyBtn.dataset.isStopIcon = 'true';
-                    proxyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#ffffff" style="pointer-events: none; width: 12px; height: 12px; display: block;"><rect x="6" y="6" width="12" height="12" rx="2" fill="#ffffff"/></svg>`;
-                }
-            } else {
-                proxyBtn.title = '전송';
-                if (proxyBtn.dataset.isStopIcon) {
-                    delete proxyBtn.dataset.isStopIcon;
-                    proxyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#ffffff" style="pointer-events: none; width: 14px; height: 14px; display: block;"><path fill="#ffffff" d="M18.77 11.13 5.75 3.39c-.93-.56-2.1.18-2.01 1.26l.72 8.65c.02.26.22.46.48.48l7.06.59c.27.02.27.42 0 .44l-7.06.59c-.26.02-.46.22-.48.48l-.72 8.65c-.09 1.08 1.08 1.82 2.01 1.26l13.02-7.74c.97-.58.97-1.98 0-2.56z"/></svg>`;
-                }
-            }
-        }
+        if (proxyBtn) proxyBtn.remove();
 
         // 1. AI 생성 중으로 진입
         if (currentHasStop) {
