@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.9
+// @version      2.4.0
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -584,11 +584,12 @@
             font-weight: bold !important;
         }
 
-        /* 1. 순정 폼, 안내 텍스트, 좌측 추천 버튼 은닉 */
+        /* 1. 순정 폼, 안내 텍스트, 좌측 추천 버튼 및 빈 자식 소거 */
         .bg-bg_screen.pointer-events-auto form,
         .bg-bg_screen.pointer-events-auto p.text-xs,
         .bg-bg_screen.pointer-events-auto .text-text_tertiary,
-        .bg-bg_screen.pointer-events-auto .flex.shrink-0.items-center.gap-2 {
+        .bg-bg_screen.pointer-events-auto .flex.shrink-0.items-center.gap-2,
+        .bg-bg_screen.pointer-events-auto > div.flex.justify-end {
             display: none !important;
             height: 0 !important;
             margin: 0 !important;
@@ -607,9 +608,12 @@
             z-index: -999 !important;
         }
 
-        /* 3. 순정 외부 래퍼: 높이와 공간을 0으로 만들어 계산기 위 허공 점유 100% 소거 */
-        .bg-bg_screen.pointer-events-auto > div.flex.w-full.flex-col.rounded-lg.border,
-        .bg-bg_screen.pointer-events-auto > div.flex.justify-end {
+        /* 3. 순정 외부 래퍼: Flex 레이아웃 흐름에서 완전히 빼버려 계산기 위 공간 점유를 0px로 완전 소거 (버튼은 overflow:visible로 보존) */
+        .bg-bg_screen.pointer-events-auto > div.flex.w-full.flex-col.rounded-lg.border {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 0 !important;
             height: 0 !important;
             min-height: 0 !important;
             margin: 0 !important;
@@ -617,9 +621,11 @@
             border: none !important;
             background: transparent !important;
             box-shadow: none !important;
+            pointer-events: none !important;
+            overflow: visible !important;
         }
 
-        /* 4. [모델선택 + 전송 버튼 세트]: 5px 상향(bottom: 23px) 및 우측 20px 대칭 완성 */
+        /* 4. [모델선택 + 전송 버튼 세트]: 우측 20px 대칭 및 bottom: 23px 완벽 안착 */
         .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
             position: absolute !important;
             bottom: 23px !important;
@@ -634,7 +640,7 @@
             transform: none !important;
         }
 
-        /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 (상단 패딩 0 강제) */
+        /* 크랙 하단 부모 컨테이너: gap-4와 py-4를 0으로 강제하여 유령 공백 0px 밀착 */
         .bg-bg_screen.pointer-events-auto,
         .flex.flex-col.w-\\[calc\\(100\\%-40px\\)\\],
         .max-w-\\[768px\\].py-4 {
@@ -644,6 +650,7 @@
             transform: translateX(-50%) !important;
             max-width: 760px !important;
             width: calc(100% - 64px) !important;
+            gap: 0 !important;
             padding-top: 0 !important;
             padding-bottom: 10px !important;
             margin: 0 !important;
@@ -2442,18 +2449,40 @@
 
             localStorage.setItem('pastel_last_sent_backup', rawInput);
 
-            // 4. ProseMirror 에디터에 글 주입 (엔터 뻥튀기 원천 방어: 1:1 클린 단락 매핑)
+            // 4. ProseMirror 에디터에 글 주입 (첫 번째 원본 파일 100% 원형 복원)
             const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
             if (editor) {
                 editor.focus();
 
-                // 개행 뻥튀기의 원인인 insertText를 배제하고, 원문 엔터 구조를 1:1 단락으로 직접 매핑
-                const cleanText = finalPayloadMessage.replace(/\r\n/g, '\n');
-                const paragraphs = cleanText.split('\n').map(line => `<p>${line ? line : '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
-                editor.innerHTML = paragraphs;
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(editor);
+                sel.removeAllRanges();
+                sel.addRange(range);
 
-                // Tiptap/ProseMirror State 실시간 동기화 트랜잭션 발송
-                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: cleanText }));
+                // 1순위: execCommand 가상 붙여넣기 (첫 번째 파일의 정상 작동 방식 원형 복원)
+                let success = false;
+                try {
+                    success = document.execCommand('insertText', false, finalPayloadMessage);
+                } catch (_) {}
+
+                // 2순위: DataTransfer 클립보드 붙여넣기 시뮬레이션
+                if (!success || !editor.textContent.trim()) {
+                    try {
+                        const dt = new DataTransfer();
+                        dt.setData('text/plain', finalPayloadMessage);
+                        const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                        editor.dispatchEvent(pasteEvt);
+                    } catch (_) {}
+                }
+
+                // 3순위: DOM 단락 주입 및 트랜잭션 InputEvent 발송
+                if (!editor.textContent.trim()) {
+                    const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+                    editor.innerHTML = paragraphs;
+                }
+
+                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
                 editor.dispatchEvent(new Event('change', { bubbles: true }));
 
