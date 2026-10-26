@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.2.0
+// @version      2.3.0
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -29,13 +29,13 @@
     let capturedCrackChatId = '';
 
     const origFetch = window.fetch;
-    window.fetch = async function(...args) {
+    window.fetch = function(...args) {
         try {
             const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
             const opts = args[1] || {};
             const headers = opts.headers || (typeof args[0] === 'object' ? args[0].headers : null);
 
-            // 1. Authorization 토큰 자동 캡처
+            // 1. Authorization 토큰 안전 캡처
             if (headers) {
                 let auth = '';
                 if (typeof headers.get === 'function') auth = headers.get('Authorization') || headers.get('authorization');
@@ -46,14 +46,14 @@
                 }
             }
 
-            // 2. ChatId 자동 캡처
-            const chatMatch = url.match(/chats?\/([a-f0-9]{24}|[a-zA-Z0-9_-]{8,})/i);
+            // 2. ChatId 안전 캡처
+            const chatMatch = url.match(/(?:chats?|episodes)\/([a-f0-9]{24}|[a-zA-Z0-9_-]{8,})/i);
             if (chatMatch && chatMatch[1] && chatMatch[1] !== 'messages' && chatMatch[1] !== 'cash') {
                 capturedCrackChatId = chatMatch[1];
                 localStorage.setItem('pastel_captured_crack_chat_id', capturedCrackChatId);
             }
         } catch (_) {}
-        return origFetch.apply(this, args);
+        return origFetch.apply(window, args);
     };
 
     // [index.html 동기화 브릿지]: 데이터가 실제로 변경되었을 때만 안전하게 동기화 (과부하 방지)
@@ -2297,26 +2297,109 @@
         fetchCrackCash();
     }
 
-    // 크랙 순정 전송 버튼을 파스텔 툴바 슬롯으로 이동 및 잔여 컨테이너 완벽 숨김
+    // [비파괴 좌표 오버레이 엔진]: 순정 전송 버튼을 DOM에서 뜯지 않고 파스텔 슬롯 위에 1:1 안착
+    let hasBoundNativePointerPipeline = false;
+
     function moveNativeSendButtonToSlot() {
         const slot = document.getElementById('ep-native-send-slot');
         if (!slot) return;
 
+        // 순정 전송 버튼 탐색 (React 가상 돔 트리 100% 보존)
+        let nativeBtn = null;
         const pathList = document.querySelectorAll('svg path');
         for (const p of pathList) {
             const d = p.getAttribute('d') || '';
             if (d.startsWith('M18.77 11.13')) {
-                const nativeBtn = p.closest('button');
-                if (nativeBtn && !slot.contains(nativeBtn)) {
-                    nativeBtn.style.position = 'relative';
-                    nativeBtn.style.zIndex = '10';
-                    nativeBtn.style.cursor = 'pointer';
-                    nativeBtn.style.margin = '0';
-                    nativeBtn.style.transform = 'none';
-                    slot.appendChild(nativeBtn);
+                const b = p.closest('button');
+                if (b && b.id !== 'ep-chat-send-btn') {
+                    nativeBtn = b;
                     break;
                 }
             }
+        }
+
+        if (!nativeBtn) return;
+
+        // 슬롯의 화면상 실제 좌표 정밀 계산
+        const rect = slot.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        // DOM에서 뜯어내지 않고(appendChild 금지) CSS 오버레이로 파스텔 슬롯에 밀착
+        nativeBtn.style.position = 'fixed';
+        nativeBtn.style.top = `${rect.top}px`;
+        nativeBtn.style.left = `${rect.left}px`;
+        nativeBtn.style.width = `${rect.width}px`;
+        nativeBtn.style.height = `${rect.height}px`;
+        nativeBtn.style.zIndex = '100005';
+        nativeBtn.style.opacity = '1';
+        nativeBtn.style.visibility = 'visible';
+        nativeBtn.style.pointerEvents = 'auto';
+        nativeBtn.style.margin = '0';
+        nativeBtn.style.transform = 'none';
+
+        // [PointerDown 선행 주입 파이프라인]: 유저가 손가락을 대는 순간(클릭 직전) ProseMirror 주입
+        if (!hasBoundNativePointerPipeline) {
+            hasBoundNativePointerPipeline = true;
+
+            const handlePointerDownPrepare = async () => {
+                const textarea = document.getElementById('ep-chat-input-textarea');
+                if (!textarea) return;
+                const rawInput = textarea.value.trim();
+                if (!rawInput) return;
+
+                // 1. 단축어 확장
+                let userExpandedText = rawInput;
+                const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
+                if (Array.isArray(shortcuts)) {
+                    shortcuts.forEach(sh => {
+                        const token = `!${sh.title}`;
+                        if (userExpandedText.includes(token)) {
+                            userExpandedText += `\n\n---\n\`\`\`additional note: !${sh.title}\n${sh.text}\n\`\`\``;
+                        }
+                    });
+                }
+
+                // 2. 로어 RAG 블록 조립
+                const chatId = getChatId();
+                const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
+                const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
+
+                // 3. ProseMirror 에디터에 주입
+                const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
+                if (editor) {
+                    editor.focus();
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(editor);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    let success = false;
+                    try {
+                        success = document.execCommand('insertText', false, finalPayloadMessage);
+                    } catch (_) {}
+
+                    if (!success || !editor.textContent.trim()) {
+                        const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+                        editor.innerHTML = paragraphs;
+                    }
+
+                    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                    editor.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    // 전송 후 입력창 비우기 및 턴수 갱신 예약
+                    setTimeout(() => {
+                        textarea.value = '';
+                        updateSendButtonColor();
+                        setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
+                    }, 50);
+                }
+            };
+
+            nativeBtn.addEventListener('pointerdown', handlePointerDownPrepare, true);
+            nativeBtn.addEventListener('touchstart', handlePointerDownPrepare, { capture: true, passive: true });
+            nativeBtn.addEventListener('mousedown', handlePointerDownPrepare, true);
         }
     }
 
@@ -2855,103 +2938,8 @@
             };
         }
 
-        // [비동기 완벽 보장] 전송 가로채기 -> 2000자 RAG 로어 조립 주입 -> 실제 크랙 전송 실행
-        const slot = document.getElementById('ep-native-send-slot');
-        let isInternalSending = false;
-
-        if (slot) {
-            slot.addEventListener('click', async (e) => {
-                // 내부에서 RAG 주입 완료 후 진짜 보낼 때는 통과
-                if (isInternalSending) return;
-
-                // 1. 브라우저의 조급한 0초 즉시 전송을 강제로 가로채어 멈춤
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                const textarea = document.getElementById('ep-chat-input-textarea');
-                if (!textarea) return;
-                const rawInput = textarea.value.trim();
-                if (!rawInput) return;
-
-                // 2. [단축어 100% 최우선 확장] (!단축어 -> additional note)
-                let userExpandedText = rawInput;
-                const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
-                if (Array.isArray(shortcuts)) {
-                    shortcuts.forEach(sh => {
-                        const token = `!${sh.title}`;
-                        if (userExpandedText.includes(token)) {
-                            userExpandedText += `\n\n---\n\`\`\`additional note: !${sh.title}\n${sh.text}\n\`\`\``;
-                        }
-                    });
-                }
-
-                // 3. [단축어 포함 전체 길이 기준 예산 산출]: 유저본문 + 단축어 공간을 먼저 100% 확보하고 남은 공간에만 로어 조립
-                const chatId = getChatId();
-                const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
-                const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
-
-                // 4. [원문 긴급 비상 백업] (어떤 오류가 발생해도 글이 날아가지 않도록 즉시 로컬 백업)
-                localStorage.setItem('pastel_last_sent_backup', rawInput);
-
-                // 5. [ProseMirror 가상 클립보드 트랜잭션 주입]: 내부 State에 2,000자 완벽 안착 (빈 공백 전송 100% 차단)
-                const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
-                if (editor) {
-                    editor.focus();
-
-                    // 전체 선택
-                    const sel = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(editor);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-
-                    // 1순위: execCommand 가상 붙여넣기 (React/ProseMirror State가 100% 인식)
-                    let success = false;
-                    try {
-                        success = document.execCommand('insertText', false, finalPayloadMessage);
-                    } catch (_) {}
-
-                    // 2순위: DataTransfer 클립보드 붙여넣기 시뮬레이션
-                    if (!success || !editor.textContent.trim()) {
-                        try {
-                            const dt = new DataTransfer();
-                            dt.setData('text/plain', finalPayloadMessage);
-                            const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-                            editor.dispatchEvent(pasteEvt);
-                        } catch (_) {}
-                    }
-
-                    // 3순위: DOM 단락 주입 및 트랜잭션 InputEvent 발송
-                    if (!editor.textContent.trim()) {
-                        const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
-                        editor.innerHTML = paragraphs;
-                    }
-
-                    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
-                    editor.dispatchEvent(new Event('input', { bubbles: true }));
-                    editor.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-
-                // 6. 에디터에 텍스트가 정상 채워졌는지 검증 후 순정 전송 버튼 클릭 및 실시간 턴수 +1 카운트
-                isInternalSending = true;
-                setTimeout(() => {
-                    const nativeBtn = slot.querySelector('button');
-                    if (nativeBtn) {
-                        nativeBtn.removeAttribute('disabled');
-                        nativeBtn.click();
-                        // 전송 후 실제 유저 발화수만 정밀하게 재집계하여 동기화 (수동 +1 가산 영구 제거)
-                        setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
-
-                        textarea.value = '';
-                        updateSendButtonColor();
-                    } else {
-                        showToast("❌ 크랙 순정 전송 버튼 탐색 실패");
-                    }
-                    isInternalSending = false;
-                }, 80);
-            }, true); // Capture phase로 이벤트 최우선 가로채기
-        }
+        // 전송 버튼 위치 상시 정렬 유지
+        moveNativeSendButtonToSlot();
     }
 
     /* ==========================================================================
