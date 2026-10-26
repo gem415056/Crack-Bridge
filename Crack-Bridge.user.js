@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.3
+// @version      2.3.4
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -53,7 +53,7 @@
                 localStorage.setItem('pastel_captured_crack_chat_id', capturedCrackChatId);
             }
         } catch (_) {}
-        return origFetch.apply(window, args);
+        return origFetch.apply(this, args);
     };
 
     // [index.html 동기화 브릿지]: 데이터가 실제로 변경되었을 때만 안전하게 동기화 (과부하 방지)
@@ -2376,11 +2376,12 @@
         fetchCrackCash();
     }
 
-    // [비파괴 결합 엔진]: CSS로 착지된 전송 버튼에 PointerDown 선행 주입 파이프라인 연결
-    let hasBoundNativePointerPipeline = false;
+    // [원본 100% 입증 엔진 복원]: Capture phase 일시정지 -> RAG 비동기 완성 -> 트랜잭션 주입 -> 확정 전송
+    let hasBoundNativeSendInterceptor = false;
+    let isInternalSending = false;
 
     function moveNativeSendButtonToSlot() {
-        // 순정 전송 버튼 탐색
+        // 순정 전송 버튼 정밀 탐색
         let nativeBtn = null;
         const pathList = document.querySelectorAll('svg path');
         for (const p of pathList) {
@@ -2396,17 +2397,25 @@
 
         if (!nativeBtn) return;
 
-        // [PointerDown 선행 주입 파이프라인]: 유저가 전송 버튼에 손가락을 대는 순간 ProseMirror 주입
-        if (!hasBoundNativePointerPipeline) {
-            hasBoundNativePointerPipeline = true;
+        if (!hasBoundNativeSendInterceptor) {
+            hasBoundNativeSendInterceptor = true;
 
-            const handlePointerDownPrepare = async () => {
+            // [초기 원본 파일의 검증된 가로채기 파이프라인 결합]
+            nativeBtn.addEventListener('click', async (e) => {
+                // 내부 확정 전송 시에는 크랙 순정 발송 통과
+                if (isInternalSending) return;
+
+                // 1. 크랙의 조급한 0초 즉시 전송을 강제로 정지 (공백 전송 원천 차단)
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+
                 const textarea = document.getElementById('ep-chat-input-textarea');
                 if (!textarea) return;
                 const rawInput = textarea.value.trim();
                 if (!rawInput) return;
 
-                // 1. 단축어 확장
+                // 2. [단축어 100% 최우선 확장]
                 let userExpandedText = rawInput;
                 const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
                 if (Array.isArray(shortcuts)) {
@@ -2418,27 +2427,44 @@
                     });
                 }
 
-                // 2. 로어 RAG 블록 조립
+                // 3. [비동기 RAG 로어 조립 완수 (대기 보장)]
                 const chatId = getChatId();
                 const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
                 const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
 
-                // 3. ProseMirror 에디터에 주입
+                // 4. [원문 긴급 비상 백업]
+                localStorage.setItem('pastel_last_sent_backup', rawInput);
+
+                // 5. [ProseMirror 3단계 가상 클립보드 트랜잭션 주입]
                 const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
                 if (editor) {
                     editor.focus();
+
+                    // 전체 선택
                     const sel = window.getSelection();
                     const range = document.createRange();
                     range.selectNodeContents(editor);
                     sel.removeAllRanges();
                     sel.addRange(range);
 
+                    // 1순위: execCommand 가상 붙여넣기
                     let success = false;
                     try {
                         success = document.execCommand('insertText', false, finalPayloadMessage);
                     } catch (_) {}
 
+                    // 2순위: DataTransfer 클립보드 붙여넣기 시뮬레이션
                     if (!success || !editor.textContent.trim()) {
+                        try {
+                            const dt = new DataTransfer();
+                            dt.setData('text/plain', finalPayloadMessage);
+                            const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                            editor.dispatchEvent(pasteEvt);
+                        } catch (_) {}
+                    }
+
+                    // 3순위: DOM 단락 주입 및 트랜잭션 InputEvent 발송
+                    if (!editor.textContent.trim()) {
                         const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
                         editor.innerHTML = paragraphs;
                     }
@@ -2446,19 +2472,20 @@
                     editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
                     editor.dispatchEvent(new Event('input', { bubbles: true }));
                     editor.dispatchEvent(new Event('change', { bubbles: true }));
-
-                    // 전송 후 입력창 비우기 및 턴수 갱신 예약
-                    setTimeout(() => {
-                        textarea.value = '';
-                        updateSendButtonColor();
-                        setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
-                    }, 50);
                 }
-            };
 
-            nativeBtn.addEventListener('pointerdown', handlePointerDownPrepare, true);
-            nativeBtn.addEventListener('touchstart', handlePointerDownPrepare, { capture: true, passive: true });
-            nativeBtn.addEventListener('mousedown', handlePointerDownPrepare, true);
+                // 6. 텍스트 완벽 채움 확인 후 확정 발송 실행
+                isInternalSending = true;
+                setTimeout(() => {
+                    nativeBtn.removeAttribute('disabled');
+                    nativeBtn.click();
+                    setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
+
+                    textarea.value = '';
+                    updateSendButtonColor();
+                    isInternalSending = false;
+                }, 80);
+            }, true); // Capture phase로 이벤트 최우선 정지 및 가로채기
         }
     }
 
