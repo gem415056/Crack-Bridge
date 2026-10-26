@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.3.7
+// @version      2.3.8
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -619,11 +619,11 @@
             box-shadow: none !important;
         }
 
-        /* 4. [모델선택 + 전송 버튼 세트]: 화면 바닥 기준으로 파스텔 툴바 우하단 슬롯 안쪽에 1:1 완벽 착지 */
+        /* 4. [모델선택 + 전송 버튼 세트]: 왼쪽 단축어 버튼(20px)과 100% 대칭되는 우측 20px 안착 */
         .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
-            position: fixed !important;
-            bottom: 22px !important;
-            right: calc(50% - 380px + 32px) !important;
+            position: absolute !important;
+            bottom: 18px !important;
+            right: 20px !important;
             z-index: 10005 !important;
             pointer-events: auto !important;
             display: flex !important;
@@ -632,11 +632,6 @@
             height: 28px !important;
             margin: 0 !important;
             transform: none !important;
-        }
-        @media (max-width: 768px) {
-            .bg-bg_screen.pointer-events-auto div.flex.min-w-0.items-center.gap-2 {
-                right: 32px !important;
-            }
         }
 
         /* 크랙 하단 부모 컨테이너 완벽 바닥 고정 (상단 패딩 0 강제) */
@@ -2389,103 +2384,109 @@
         fetchCrackCash();
     }
 
-    // [DOM 보존 비파괴 전송 엔진]: appendChild 완전 배제 (React 에러 0%) + 원본 캡처 가로채기 결합
-    let hasBoundNativeSendInterceptor = false;
+    // [전역 캡처 위임 전송 엔진]: React 리렌더링과 무관하게 100% 가로채며, 글 검증 실패 시 전송을 차단하여 공백 전송 원천 방지
     let isInternalSending = false;
+    let hasBoundGlobalSendInterceptor = false;
 
     function moveNativeSendButtonToSlot() {
-        // 순정 전송 버튼 정밀 탐색 (DOM에서 뜯지 않음)
-        let nativeBtn = null;
-        const pathList = document.querySelectorAll('svg path');
-        for (const p of pathList) {
-            const d = p.getAttribute('d') || '';
-            if (d.startsWith('M18.77 11.13')) {
-                const b = p.closest('button');
-                if (b && b.id !== 'ep-chat-send-btn') {
-                    nativeBtn = b;
-                    break;
+        if (hasBoundGlobalSendInterceptor) return;
+        hasBoundGlobalSendInterceptor = true;
+
+        // [화면 전체 캡처 단계에서 전송 클릭 최우선 감지]: 버튼이 다시 그려져도 100% 낚아챔
+        document.addEventListener('click', async (e) => {
+            if (isInternalSending) return;
+
+            // 클릭된 대상이 크랙 순정 전송 버튼(M18.77...)인지 정밀 판별
+            const target = e.target;
+            const btn = target.closest('button');
+            if (!btn || btn.id === 'ep-chat-send-btn') return;
+
+            const path = btn.querySelector('svg path');
+            const d = path ? (path.getAttribute('d') || '') : '';
+            if (!d.startsWith('M18.77 11.13')) return;
+
+            // 1. 순정의 빈 에디터 즉시 전송을 강제로 정지
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            const textarea = document.getElementById('ep-chat-input-textarea');
+            if (!textarea) return;
+            const rawInput = textarea.value.trim();
+            if (!rawInput) return;
+
+            // 2. 단축어 확장
+            let userExpandedText = rawInput;
+            const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
+            if (Array.isArray(shortcuts)) {
+                shortcuts.forEach(sh => {
+                    const token = `!${sh.title}`;
+                    if (userExpandedText.includes(token)) {
+                        userExpandedText += `\n\n---\n\`\`\`additional note: !${sh.title}\n${sh.text}\n\`\`\``;
+                    }
+                });
+            }
+
+            // 3. RAG 로어 조립 (로어가 없을 때는 지연 없이 0초 만에 유저 글 즉각 보존)
+            const chatId = getChatId();
+            let loreBlock = "";
+            try {
+                loreBlock = await Promise.race([
+                    buildCrackRAGLoreBlock(userExpandedText, chatId),
+                    new Promise(r => setTimeout(() => r(""), 300))
+                ]);
+            } catch (_) {
+                loreBlock = "";
+            }
+            const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
+
+            localStorage.setItem('pastel_last_sent_backup', rawInput);
+
+            // 4. ProseMirror 에디터에 글 주입
+            const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
+            if (editor) {
+                editor.focus();
+
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(editor);
+                sel.removeAllRanges();
+                sel.addRange(range);
+
+                let success = false;
+                try {
+                    success = document.execCommand('insertText', false, finalPayloadMessage);
+                } catch (_) {}
+
+                if (!success || !editor.textContent.trim()) {
+                    const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
+                    editor.innerHTML = paragraphs;
+                }
+
+                editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                editor.dispatchEvent(new Event('change', { bubbles: true }));
+
+                // [철벽 방어막]: 에디터에 내 글이 정상적으로 들어갔는지 최종 검증!
+                const isContentReady = editor.textContent && editor.textContent.trim().length > 0;
+                if (!isContentReady) {
+                    showToast("⚠️ 에디터 입력 처리 중... 1초 후 다시 전송을 눌러주세요.");
+                    return; // 텍스트가 안 채워졌으면 절대로 전송하지 않아 500원 낭비 원천 차단!
                 }
             }
-        }
 
-        if (!nativeBtn) return;
+            // 5. 텍스트 완벽 채움 확정 후 진짜 전송 발송
+            isInternalSending = true;
+            setTimeout(() => {
+                btn.removeAttribute('disabled');
+                btn.click();
+                setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
 
-        // [순정 버튼 전송 인터셉터]: 캡처 단계에서 0초 조급 전송을 멈추고 글+로어 주입 후 확정 발송
-        if (!hasBoundNativeSendInterceptor) {
-            hasBoundNativeSendInterceptor = true;
-
-            nativeBtn.addEventListener('click', async (e) => {
-                // 내부 확정 전송 시에는 크랙 발송 통과
-                if (isInternalSending) return;
-
-                // 1. 크랙의 조급한 0초 전송 강제 정지 (공백 전송 원천 차단)
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                const textarea = document.getElementById('ep-chat-input-textarea');
-                if (!textarea) return;
-                const rawInput = textarea.value.trim();
-                if (!rawInput) return;
-
-                // 2. 단축어 확장
-                let userExpandedText = rawInput;
-                const shortcuts = GM_getValue('pastel_mockShortcuts', null) || JSON.parse(localStorage.getItem('pastel_mockShortcuts') || '[]');
-                if (Array.isArray(shortcuts)) {
-                    shortcuts.forEach(sh => {
-                        const token = `!${sh.title}`;
-                        if (userExpandedText.includes(token)) {
-                            userExpandedText += `\n\n---\n\`\`\`additional note: !${sh.title}\n${sh.text}\n\`\`\``;
-                        }
-                    });
-                }
-
-                // 3. 비동기 RAG 로어 조립 완수
-                const chatId = getChatId();
-                const loreBlock = await buildCrackRAGLoreBlock(userExpandedText, chatId);
-                const finalPayloadMessage = loreBlock ? `${loreBlock}\n\n${userExpandedText}` : userExpandedText;
-
-                localStorage.setItem('pastel_last_sent_backup', rawInput);
-
-                // 4. ProseMirror 에디터에 주입 (투명 오프스크린이므로 브라우저가 포커스 및 텍스트 100% 인식)
-                const editor = document.querySelector('.ProseMirror') || document.querySelector('[contenteditable="true"]');
-                if (editor) {
-                    editor.focus();
-
-                    const sel = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(editor);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-
-                    let success = false;
-                    try {
-                        success = document.execCommand('insertText', false, finalPayloadMessage);
-                    } catch (_) {}
-
-                    if (!success || !editor.textContent.trim()) {
-                        const paragraphs = finalPayloadMessage.split('\n').map(line => `<p>${line || '<br class="ProseMirror-trailingBreak">'}</p>`).join('');
-                        editor.innerHTML = paragraphs;
-                    }
-
-                    editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: finalPayloadMessage }));
-                    editor.dispatchEvent(new Event('input', { bubbles: true }));
-                    editor.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-
-                // 5. 텍스트 완벽 채움 후 확정 전송 실행
-                isInternalSending = true;
-                setTimeout(() => {
-                    nativeBtn.removeAttribute('disabled');
-                    nativeBtn.click();
-                    setTimeout(() => getCrackUserTurnsRealtime(chatId), 500);
-
-                    textarea.value = '';
-                    updateSendButtonColor();
-                    isInternalSending = false;
-                }, 80);
-            }, true); // Capture phase로 이벤트 최우선 정지
-        }
+                textarea.value = '';
+                updateSendButtonColor();
+                isInternalSending = false;
+            }, 80);
+        }, true); // Capture phase로 React보다 먼저 100% 가로챔
     }
 
     function insertSymbolsToTextarea(openSymbol, closeSymbol) {
