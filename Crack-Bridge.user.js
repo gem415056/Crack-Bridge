@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.5.4
+// @version      2.5.5
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -221,7 +221,7 @@
             gap: 4px;
             overflow: hidden;
             white-space: nowrap;
-            padding: 4px;
+            padding: 8px;
             background: transparent;
             border: none;
             border-radius: 6px;
@@ -2042,7 +2042,7 @@
             menuBtn.id = 'ep-native-menu-btn';
             menuBtn.type = 'button';
             menuBtn.title = '보조 메뉴 열기';
-            menuBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="var(--icon_secondary)" viewBox="0 0 24 24" width="24" height="24" color="icon_secondary"><path fill-rule="evenodd" d="M15.43 6.9c.5-.25 1.07-.14 1.44.23s.48.93.23 1.44l-2.61 5.33q-.2.4-.6.6l-5.33 2.6c-.5.26-1.08.15-1.44-.22a1.25 1.25 0 0 1-.23-1.44L9.5 10.1q.2-.4.6-.6zm-6.65 8.32 3.72-1.82-1.9-1.9z" clip-rule="evenodd"></path><path fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20m0 1.6a8.41 8.41 0 0 0 0 16.8 8.41 8.41 0 0 0 0-16.8" clip-rule="evenodd"></path></svg>`;
+            menuBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--icon_secondary)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"></circle><polygon points="15.8 8.2 13.8 13.8 8.2 15.8 10.2 10.2 15.8 8.2"></polygon></svg>`;
             // 버튼 클릭 이벤트 직접 연결 (슬라이딩 애니메이션 클래스 연동)
             menuBtn.onclick = (e) => {
                 e.stopPropagation();
