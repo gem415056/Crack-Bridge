@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.5.1
+// @version      2.5.2
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -2043,8 +2043,11 @@
             menuBtn.type = 'button';
             menuBtn.title = 'PASTELchat 메뉴 열기';
             menuBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"></path>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill="currentColor">
+                    <g fill-rule="evenodd" clip-rule="evenodd">
+                        <path d="M20.487 2.491a1.3 1.3 0 0 1 1.313 1.3v9.45a6.1 6.1 0 0 0-4.855-2.404 6.114 6.114 0 0 0-5.99 7.299L6.63 21.774l-.04.02c-.54.36-1.39.03-1.39-.75v-3.2H3.5c-.72 0-1.3-.58-1.3-1.299V3.849c.001-.72.58-1.3 1.3-1.3h11.574zM6 11.63h5v-1.6H6zm0-3.31h10.5v-1.6H6z"></path>
+                        <path d="M17.177 12.442a4.5 4.5 0 0 1 1.109.198q.461.144.876.38a4.53 4.53 0 0 1 2.088 2.584 4.5 4.5 0 0 1 .203 1.34 4.51 4.51 0 0 1-4.507 4.507 4.51 4.51 0 0 1-4.508-4.508 4.514 4.514 0 0 1 4.74-4.5m-.897 4.84 1.842 1.412.829-1.093-1.304-.994v-2.17H16.28z"></path>
+                    </g>
                 </svg>
             `;
             // 버튼 클릭 이벤트 직접 연결 (슬라이딩 애니메이션 클래스 연동)
