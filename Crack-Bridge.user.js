@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.4.4
+// @version      2.5.0
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -1335,6 +1335,44 @@
         }
     }
 
+    // 클릭 가능 플로팅 알림 토스트 (클릭 시 콜백 실행 및 창 닫힘)
+    function showClickableToast(msg, onClick = null, persistent = false) {
+        let container = document.getElementById('pastel-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'pastel-toast-container';
+            document.body.appendChild(container);
+        }
+        const item = document.createElement('div');
+        item.className = 'ep-toast-item';
+        item.style.cssText = 'pointer-events: auto !important; cursor: pointer;';
+        item.innerHTML = `<div class="ep-toast-container"><p class="ep-toast-text">${msg}</p></div>`;
+
+        let timer = null;
+        const remove = () => {
+            if (timer) clearTimeout(timer);
+            item.classList.remove('visible');
+            setTimeout(() => {
+                if (container && container.contains(item)) item.remove();
+            }, 200);
+        };
+
+        if (onClick) {
+            item.onclick = (e) => {
+                e.stopPropagation();
+                remove();
+                onClick();
+            };
+        }
+
+        container.appendChild(item);
+        setTimeout(() => item.classList.add('visible'), 20);
+
+        if (!persistent) {
+            timer = setTimeout(remove, 3000);
+        }
+    }
+
     /* ==========================================================================
      * 2.5 로어 블록 화면 은닉 필터 (index.html 순정 100% 일치)
      * ========================================================================== */
@@ -1622,9 +1660,8 @@
                                 <label>로어 생성 모델</label>
                                 <select class="model-select-dropdown" id="ep-lore-extract-model-select">
                                     <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
-                                    <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                                     <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash</option>
-                                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                                     <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
                                     <option value="_custom">직접 입력 (Custom)</option>
                                 </select>
@@ -1633,9 +1670,8 @@
                                 <label>중요 장면 판단 모델</label>
                                 <select class="model-select-dropdown" id="ep-lore-judge-model-select">
                                     <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
-                                    <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                                     <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
-                                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                                     <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash Lite</option>
                                     <option value="_custom">직접 입력 (Custom)</option>
                                 </select>
@@ -1895,8 +1931,8 @@
                                         <div style="flex: 1; display: flex; flex-direction: column;">
                                             <span style="font-size: 12px; margin-bottom: 4px; font-weight: bold;">병합 방식</span>
                                             <select id="ep-lore-merge-bulk-mode" class="decentral-select">
-                                                <option value="keep-longest">가장 긴 항목 보존 (안전)</option>
-                                                <option value="llm-summarize" selected>LLM 인공지능 요약 병합</option>
+                                                <option value="keep-longest">단순 병합</option>
+                                                <option value="llm-summarize" selected>LLM 요약 병합</option>
                                             </select>
                                         </div>
                                     </div>
@@ -1957,9 +1993,9 @@
                             <div class="decentral-grid-element-long-semi-flat" style="margin-bottom: 12px;">
                                 <div class="decentral-boxed-field" style="padding: 16px !important; display: flex; flex-direction: column; align-items: stretch;">
                                     <p class="element-title" style="color: #74a1c0 !important; font-size: 15px !important; margin: 0 0 4px 0;">로어 생성 설정</p>
-                                    <p class="element-description" style="margin: 0 0 12px 0;">대화 중 로어를 자동으로 추출할 주기 및 추가 세부 지시사항을 설정합니다.</p>
+                                    <p class="element-description" style="margin: 0 0 12px 0;">대화 중 로어 생성 알림을 띄울 주기 및 추가 세부 지시사항을 설정합니다.</p>
                                     <div style="display: flex; flex-direction: column; margin-bottom: 14px; width: 100%;">
-                                        <span style="font-size: 12px; margin-bottom: 4px; font-weight: bold;">자동 생성 주기 (턴)</span>
+                                        <span style="font-size: 12px; margin-bottom: 4px; font-weight: bold;">로어 생성 주기 (턴)</span>
                                         <input type="number" id="ep-lore-auto-ext-turns" class="decentral-text-field" value="6" min="1" max="50" step="1">
                                     </div>
                                     <div style="display: flex; flex-direction: column; width: 100%;">
@@ -2083,7 +2119,7 @@
         if (m.includes('flash-lite') || m.includes('lite')) {
             return (inTok * (0.30 / 1000000)) + (outTok * (2.50 / 1000000));
         }
-        // 3) Gemini 3.7 Flash / 3.6 Flash / 3.5 Flash (In $0.75 / Out $3.75 per 1M)
+        // 3) Gemini 3.8 Flash / 3.6 Flash (In $0.75 / Out $3.75 per 1M)
         if (m.includes('flash')) {
             return (inTok * (0.75 / 1000000)) + (outTok * (3.75 / 1000000));
         }
@@ -3710,12 +3746,184 @@
     // ==========================================
     // crack.html 순정 100% 원문 프롬프트 템플릿
     // ==========================================
-    const SCHEMA_FORMAT = `[
+    // ==========================================
+    // [단일화] 최신 로어 추출용 통합 프롬프트 템플릿
+    // ==========================================
+    const PROMPT_TEMPLATE_LORE_EXTRACT = `You are an AI Lore Archivist.
+Convert the provided [{{SOURCE_TITLE}}] into structured JSON lore entries for RP.
+Output ONLY a valid JSON array matching the schema. No markdown backticks, no trailing commas.
+
+=========================================
+[CORE MISSION: DUAL-TASK OF LORE ARCHIVIST]
+Your core mission is to manage the Lore Database with absolute consistency. You must perform two tasks simultaneously in a single pass:
+- Task 1. GENERAL LORE & PROFILES: Manage persistent identity, relationship, and setting cards.
+- Task 2. SCENE EVENTS & LARGE PROMISES: Capture concrete scene milestones and major oaths.
+
+=========================================
+[PART 1. GLOBAL OPERATING CONSTRAINTS]
+The following rules apply across ALL lore entries without exception:
+
+1. TOKEN-SAVING & STYLE CONSTRAINT:
+- EXCLUSION: Only the "text" field inside the "quote" array is allowed to use natural, colloquial speech (e.g. "『...』", "「...」").
+- MANDATORY STYLE: ALL other text fields—including "summary.full", "summary.compact", "summary.micro", and "state" fields—MUST be written in Korean using concise nominal/noun-ending styles (개조식 종결어미: e.g., "~함", "~임", "~음", "~했음", or noun form).
+- NEVER use polite, formal, or plain prose endings (e.g., "~합니다", "~이다", "~했다" 등 평서문/설명조 문체 영구 금지).
+
+2. CRITICAL JSON SAFETY:
+- Inside any JSON string values, you MUST NEVER use double quotes (") for dialogue or emphasis. Use single quotes (') or bracket-quotes instead to prevent JSON parsing syntax crashes.
+
+3. ADVANCED INTEGRITY & DEDUPLICATION:
+- DIRECT UPDATE ONLY FOR PROFILES & SETTINGS (EXCLUDING 'event'):
+  * EXCLUSION (CRITICAL): This direct update rule NEVER applies to 'type': 'event'. Events must always be created as fresh, independent cards (see Task 2).
+  * ENTITY UPDATES: For all other types (character, relationship, location, item, concept, setting, promise), you must ONLY update an existing card if it represents the EXACT same entity. Preserve the existing baseline narrative and append the latest developments chronologically. If the total text approaches the 700-character budget, intellectually compress only the older, less critical details while keeping all sacred turning points verbatim. Do NOT create duplicate profile cards under altered or shortened names.
+  * NO RECENT CHANGES? OMIT OUTPUT: If there is no new narrative progress, emotional shift, or factual change for an existing card (of any type), do NOT output it at all. Omit it from the output array to save tokens.
+  * UPDATE COMPLIANCE (FOR ALL CARD TYPES): When updating the fields (especially "summary.full") of any existing card, you MUST strictly adhere to the [PROPORTIONAL NARRATIVE CONDENSING RULE] and [TOKEN-SAVING & STYLE CONSTRAINT] below to maintain style consistency and prevent narrative fragmentation.
+
+4. SACRED NARRATIVE ANCHORS:
+- You MUST NEVER delete, alter, or heavily compress the core plot milestones, traumatic past events, or defining relationship turning points (e.g., family background, childhood piano hideout memory, major injuries or violent incidents).
+- These are the character's identity and must be preserved verbatim in "summary.full" even if they are old.
+
+5. ANCHOR AWARENESS (CRITICAL — USER-LOCKED NARRATIVE FACTS):
+- Some existing entries in the Lore Database have "anchor": true. These are user-locked canonical facts.
+- For anchored entries: NEVER output or overwrite "summary", "state", "detail", "call", "callState", "cond", "imp", "sur", "emo", "gs", or "arc". These fields are PROTECTED and any output will be discarded by the merge layer.
+- You MAY only APPEND new items to "eventHistory" (if genuinely new and memorable), or add new keywords to "triggers".
+- If nothing new qualifies for an anchored entry, OMIT it entirely from your output. Do not echo its existing fields.
+
+6. DYNAMIC EXTRACTION BALANCE:
+- CHARACTER, RELATIONSHIP (relationship), and PROMISE (promise) are the absolute highest priority narrative engines of this story. You must be extremely vigilant in creating or updating these types whenever a bond shifts, an emotional milestone is reached, or an agreement is made.
+- Other background types like "location", "concept", and "setting" should ONLY be created or updated when a highly significant, plot-defining physical transformation or world-rule change actually occurs. Never create or update these for minor, transient details.
+
+=========================================
+[PART 2. PROPORTIONAL NARRATIVE CONDENSING RULE (summary.full: Max {{MAX_CHARS}} Chars)]
+- APPLIES ONLY TO PERSISTENT ENTITIES: This rule strictly applies to updating persistent profiles (character, relationship, location, item, concept, setting, promise). As established, 'type': 'event' cards are NEVER updated.
+- You are updating the "summary.full" field, which has a strict {{MAX_CHARS}}-character budget.
+- You are strictly FORBIDDEN from wiping out the existing summary or replacing it solely with the new developments.
+- You MUST execute the following two steps in strict sequential order:
+
+  * STEP 1 (Mandatory Verbatim Copy & Append):
+    1. First, copy the ENTIRE existing text of "summary.full" word-for-word (Verbatim) from [Existing Lore Database]. Do not alter, delete, or summarize anything yet.
+    2. Then, append the latest narrative developments, emotional shifts, and newly revealed facts directly to the end of the text.
+    3. STRICT DEDUPLICATION: Do NOT repeat or duplicate sentences/facts already written in the existing text. Append ONLY genuinely new developments to prevent repetitive echo loops.
+
+  * STEP 2 (Near-Budget Minimal Compression Check):
+    1. Check the total character count of the combined text from Step 1.
+    2. If the combined text is {{MAX_CHARS}} characters or less: STOP. Output the entire combined text exactly as-is. DO NOT compress, summarize, or omit a single word.
+    3. If the combined text EXCEEDS {{MAX_CHARS}} characters: Perform MINIMAL, SURGICAL compression while strictly adhering to these rules:
+       - Rule A (Budget Maximization): Utilize the maximum available budget (strictly aim for near {{MAX_CHARS}} characters). You are strictly FORBIDDEN from aggressively shortening the text down to half the budget. Fill the budget as much as possible.
+       - Rule B (Verbatim Sacred Turning Points): Look at "eventHistory", "promises", and "callState". All nominal sentences in the summary describing critical turning points, confessions, past traumas, solemn vows, and major injuries must be preserved 100% VERBATIM. Never summarize or delete them.
+       - Rule C (Latest Situation Priority): The latest developments appended in Step 1 must be kept fully intact at the end in dense nominal style.
+       - Rule D (Minimal Pruning Zone): Intellectually condense ONLY the oldest, least critical, mundane transitional clauses in the middle into brief, high-density background clauses (e.g., "~한 가벼운 일상이 있었으나").
+
+- Ensure the entire updated summary is a single, grammatically complete, flowing paragraph ending in nominal style (~함). Never end with an unfinished sentence or trailing dots (…).
+
+=========================================
+[PART 3. TYPE-SPECIFIC SPECIFICATIONS]
+
+[Task 1. GENERAL LORE & PROFILES (character/relationship/location/item/setting/world concept)]
+- If a new character, relationship, location, item, setting, or world concept is introduced in the [{{SOURCE_TITLE}}] that does NOT already exist in the [Existing Lore Database], you MUST create a NEW JSON card (object) for it.
+- If it already exists, you MUST edit and update the existing JSON card. Do NOT create duplicate cards.
+- CORE PRINCIPLE (Plotline Segregation & Type Specialization):
+  * NO SCENE PLOTLINES: Do NOT narrate the chronological storyline, step-by-step action sequences, or dialogue exchanges of events here. The concrete narrative plot belongs SOLELY to "type": "event" in Task 2.
+  * TYPE-SPECIFIC ESSENCE & IMPACT: Record only the intrinsic, specialized profile information of each entity. When events occur, document ONLY how those events directly impacted, transformed, or revealed new aspects of that entity (e.g., internal psychology and state changes for characters, trust and power dynamic shifts for relationships, environmental/rule changes for locations and settings).
+- Target Length: Keep the "summary.full" of these cards strictly within the {{MAX_CHARS}}-character budget. Focus on intrinsic identity, relationships, and event impacts, strictly offloading scene narrations to Task 2.
+
+1. "character" (Intrinsic Identity, Traits & State Shifts):
+- TYPE SPECIALIZATION: Do NOT narrate scene plotlines step-by-step. Focus on the character's intrinsic identity, traits, appearance, background, and how recent events impacted their internal psychology, attitude, and current physical/mental state.
+- CHARACTER NAME MATCHING: Specifically for characters, if they are referred to by a shortened name or nickname in the log (e.g., "하늘"), but their full name card (e.g., "강하늘") exists in the database, you MUST directly update the existing full name card ("강하늘"). Never output a new separate card under "하늘".
+- "promises" array: Populate ONLY with active, ongoing promises/agreements.
+  * Each item in "promises" MUST strictly follow the format: "[인물A ↔ 인물B] 무엇을 하기로 약속함" (specifying exactly who promised what to whom).
+  * CRITICAL (DELETION RULE): If a promise has been fulfilled, completed, canceled, or broken in the current context, you MUST REMOVE/OMIT it from the "promises" array completely. Do NOT keep resolved or past promises.
+  * If a new/updated promise overlaps or contradicts an existing one, overwrite it with the latest status.
+
+2. "relationship" (Interpersonal Bond, Power Dynamics & Vocative Shifts):
+- TYPE SPECIALIZATION: Focus strictly on the dynamic between the two characters—emotional bond, trust, power dynamics, mutual attitudes, and vocative/title changes resulting from events. Never narrate plot details or individual backstories here.
+- CANONICAL RELATIONSHIPS (↔): Specifically for relationships, they must ALWAYS be named under the strict format "NameA ↔ NameB" (with space-bracket-space, sorted alphabetically, e.g., "강하늘 ↔ 김도훈"). If a relationship card between these two characters already exists (even if written as "김도훈 ↔ 강하늘", with different separators, or different orders), you MUST reuse the exact same name of that existing card and update its fields directly.
+- "callState" field: ALWAYS populate the "callState" field mapping how characters address each other (e.g. {"A→B": "오빠", "B→A": "이름"}). Strictly preserve and update the honorific/vocative relationship matrix (from→to: title). For other types, leave it as an empty object {}.
+- "promises" array: Apply the same strict format "[인물A ↔ 인물B] 무엇을 하기로 약속함" and DELETION RULE upon completion/cancellation.
+
+3. "location", "concept", "setting", "item" (Settings, Locations & World Concepts):
+- Other background types like "location", "concept", and "setting" should ONLY be created or updated when a highly significant, plot-defining physical transformation or world-rule change actually occurs. Never create or update these for minor, transient details.
+
+-----------------------------------------
+[Task 2. SCENE EVENTS & LARGE PROMISES]
+
+1. "event" (Scene Chronicles — Concrete Unfolding & Plotlines):
+- TYPE SPECIALIZATION: The concrete, chronological step-by-step unfolding, actions, and consequences of a scene belong SOLELY in "type": "event".
+- Analyze the [{{SOURCE_TITLE}}] to extract concrete, plot-critical scene milestones, major reveals, emotional shifts, or agreements that occurred in this log segment. Create a NEW card of "type": "event" for each major scene milestone.
+- EVENT INDEPENDENCE & IMMUTABILITY (NEVER OVERWRITE): Every scene event milestone MUST be created as a separate, distinct NEW card with its own unique descriptive title representing that specific scene. NEVER reuse, overwrite, or alter the narrative summary of an existing event card. Every event card is a permanent, immutable chronological snapshot.
+  * PROMISE STATUS EXCEPTION: If a promise recorded in an existing event card has been fulfilled, canceled, broken, or put on hold in the recent conversation, you MAY output that existing event card ONLY to update its "promises" array with the new status tag (e.g. (완료), (보류), (파기)) while keeping its summary and all other fields completely intact.
+- EVENT NAMING RULE: Never include turn markers (e.g. t12, turn 12), dates, or time indicators in the event "name" or "title". Keep it strictly as a clean, thematic title in the conversation language (e.g., '비밀의 방에서의 야간 비밀 회동', '헤르미온느의 약점 고백', '칼잡이의 습격과 대처').
+- EVENT SIGNIFICANCE CRITERIA: Focus on the SUBSTANCE of the interaction, not just the setting. If a significant emotional shift, a critical agreement, a major confession, or a narrative reveal actually occurs, you MUST extract it as an "event" card. Only ignore routine, meaningless small talk that has no narrative consequence or emotional development.
+- Focus: Capture the participants, location, the outcome of the scene, and crucially, any unresolved tension or ongoing plot threads under "hooks".
+- Target Length: Keep the "summary.full" of event cards strictly within the {{MAX_CHARS}}-character budget.
+- "promises" array in "event" cards: Actively record all promises/agreements created, fulfilled, pending, or broken during this scene event. Each item MUST follow the format "[인물A ↔ 인물B] 약속 내용 (상태)" where (상태) reflects the contextual status—such as (진행중), (완료), (보류), (파기), etc.—without angle brackets. Do NOT delete fulfilled or canceled promises here; preserve them permanently as an enduring record of what transpired in this scene.
+- Event Date/Period Formatting (MANDATORY FORMAT: <Date> Content): For "type": "event" entries, you MUST prepend the date enclosed in angle brackets at the very beginning of the "summary.full" field: "<Date> Content".
+  * Single Date: "<yyyy. mm. dd> 사건 내용" (Example: "<2025. 10. 15> 해리와 론이 만나 비밀 지도를 조사함." Year 4 digits, month and day 2 digits with leading zeros, separated by a dot and a space. Do NOT write "2025년 10월 15일", "2025/10/15", "2025.10.15", or "2025. 10. 15. 밤").
+  * Date Range: "<yyyy. mm. dd ~ yyyy. mm. dd> 사건 내용" (Example: "<2025. 10. 15 ~ 2025. 10. 18> 호그와트 지하 감옥 합숙 훈련 진행함.").
+  * Unknown Date: "<Relative Timeline> 사건 내용" (Example: "<합숙 첫째 날 낮> 숲속에서 수상한 흔적 발견함." or "<축제 사흘째 밤> 비밀 파티에 참석함.").
+  * Multiple Events: When describing multiple events chronologically, separate each with ' | ' on a single line: "<yyyy. mm. dd> 사건1 내용 | <yyyy. mm. dd> 사건2 내용"
+
+2. "promise" (High-Stakes Oaths & Binding Contracts):
+- Create a card of "type": "promise" ONLY for major, high-stakes contracts, solemn covenants, or life-altering oaths (e.g., a psychopath's solemn oath not to harm someone, a playboy's promise to look only at you, or other major contracts/vows of similar or higher significance). This card threshold must be high. Do not create standalone "promise" cards for trivial agreements.
+- For "type": "promise" cards, the "summary.full" field MUST strictly begin with "[진행 상황: <상태>] " (where <상태> represents the current status of the promise/contract dynamically determined by you, such as "진행중", "완료", "해제", "보류" etc.).
+- Unlike minor promises inside profiles, a "type": "promise" card is an enduring historical record and MUST NOT be deleted even if its status is completed/resolved.
+
+=========================================
+[ORTHOGONAL ILLUSTRATION: SEGREGATION OF A SINGLE SCENE]
+To prevent narrative duplication across cards, review how a single dramatic scene is cleanly partitioned into each distinct lore type without plot overlap:
+* Scenario Example: "At an imperial ball, the Duke protects the Princess from an assassin's poisoned needle by casting an ancient magic 'Shadow Barrier'. The ballroom's marble floor is cracked and scorched by the impact, the Duke suffers internal mana-backflow injuries, and the two forge deep mutual trust."
+
+1. "event" (Task 2 - Concrete Scene Plotline):
+   ➔ <Ballroom Assassination Attempt>: Chronologically narrate the specific action sequence, unfolding process, and outcome of the assassin attacking, the barrier being raised, and the resulting chaos. The actual narrative plot belongs SOLELY here.
+
+2. "character" (Task 1 - Intrinsic Identity & State Impact):
+   ➔ Duke's Card: Absolutely NO step-by-step plot narration. Document ONLY the physical state resulting from the event (chest pain from mana backflow) and the internal psychological shift (relief at protecting her and heightened vigilance).
+
+3. "relationship" (Task 1 - Dynamic, Trust & Vocative Impact):
+   ➔ Duke ↔ Princess Card: Absolutely NO step-by-step plot narration. Document ONLY the deepened emotional bond, mutual trust forged through life-or-death reliance, and strategic alignment against the attacker.
+
+4. "location" (Task 1 - Persistent Environmental Change):
+   ➔ Imperial Ballroom Card: Absolutely NO step-by-step plot narration. Document ONLY the persistent physical change in the environment (the black cracks and scorch marks permanently scarred onto the central marble floor).
+
+5. "concept" / "setting" (Task 1 - World Rule Discovery):
+   ➔ Shadow Barrier Card: Absolutely NO step-by-step plot narration. Document ONLY the newly revealed magical rule or mechanic (the barrier offers absolute protection against lethal attacks but inflicts agonizing mana-backflow on the caster).
+
+=========================================
+[PART 4. COMMON METADATA & QUOTE SYSTEM]
+You MUST NOT lose or overwrite the other fields in the JSON. Preserve and update them with extreme care:
+
+1. "triggers" KEYWORD RULES:
+- Maintain existing keyword patterns, appending new relevant search queries.
+
+2. "promises" METADATA RULE (TWO-TIER SEPARATION):
+- For "event" cards: Record promises with their contextual status tag in pure parentheses, e.g. "[인물A ↔ 인물B] 약속 내용 (상태)" (such as (진행중), (완료), (보류), (파기)). NEVER delete completed or broken promises from event cards; preserve them as historical scene facts.
+- For ALL other cards (excluding "event" cards): Keep ONLY currently active/ongoing promises in "[인물A ↔ 인물B] 약속 내용" format. If a promise has been completed, fulfilled, canceled, or broken, completely REMOVE/DELETE it from these cards to prevent redundancy and save tokens. Distinct promises must be preserved separately.
+
+3. "eventHistory" & TURN MARKING:
+- Actively extract and append any meaningful narrative progress, emotional changes, or actions as milestone events. You MUST ensure each event has a corresponding "quote" to capture the character's voice.
+- "eventHistory.turn": Refer to the "(t<number>)" prefix at the start of each line in [{{SOURCE_TITLE}}] if available. You MUST record the exact turn number where the event happened as an integer into the "turn" field (e.g., "turn": 10). If turn markers are absent, use 0.
+- "eventHistory.summary" Rules: This MUST be an extremely short, single-sentence summary (strictly under 40 characters) written in nominal style (~함). Do NOT narrate details; only write the core milestone (e.g., 'A와 화해함', '비밀 조약 체결함').
+- quote: You MUST actively extract the most representative dialogue or inner thought of this event milestone under "quote". Do NOT omit the "quote" field unless the character was completely silent.
+
+4. CONTEXTUAL QUOTE PLACEMENT:
+- Do NOT blindly record all quotes under 'character' cards. Instead, record the dialogue or inner thoughts inside the "quote" object of an "eventHistory" entry of the specific card that they define most critically:
+  * RELATIONSHIP QUOTES: If a quote defines a relationship shift, emotional bond, or oath between two characters, record it inside the "eventHistory" of the corresponding "relationship" card.
+  * EVENT QUOTES: If a quote is the defining highlight or climax of a scene event, record it inside the "eventHistory" of that specific "event" card.
+  * LOCATION QUOTES: If a quote is deeply tied to a location's atmosphere or occurrence, record it inside the "eventHistory" of that "location" card.
+  * CHARACTER QUOTES: Otherwise, default to recording it inside the "eventHistory" of the speaker's "character" card.
+
+5. MEMORABLE QUOTES SYNTAX:
+- When extracting a key narrative event (eventHistory) representing emotional shifts, relationship milestones, or contract execution, always record the most influential and memorable dialogue or inner thoughts representing that event inside the quote object of that event.
+  * Dialogue: Use 『 』 bracket quotes. e.g., "speaker": "해리포터", "listener": "론", "text": "『제발 한 번만 내 말 들어줘』"
+  * Inner Thoughts: Use 「 」 bracket quotes. e.g., "speaker": "해리포터", "listener": "self", "text": "「볼드모트에게 절대로 지고 싶지 않음」"
+
+=========================================
+Schema:
+[
     {
         "type": "character|relationship|location|item|event|concept|setting|promise",
         "name": "지식 명칭",
         "triggers": ["키워드1", "인물&&사건"],
-        "promises": ["[인물A ↔ 인물B] 약속 내용"],
+        "promises": ["[인물A ↔ 인물B] 약속 내용 (진행 상태)"],
         "summary": {
             "full": "누적 요약: 현재 정보 및 진행 중인 서사",
             "compact": "지식 핵심 내용",
@@ -3726,258 +3934,34 @@
         "entities": ["관련 인물/장소명"],
         "eventHistory": [
             { 
-                "turn": 0, 
+                "turn": 0,
                 "summary": "핵심 사건 1줄 요약 (명사형 종결 ~함, 최대 40자 제한. 예: '론과 오해로 싸움')", 
                 "quote": { "speaker": "말한/생각한 이", "listener": "들은 이 | 'self'", "text": "『대사』 또는 「속마음」" }
             }
         ]
     }
-]`;
+]
 
-    // 1) 텍스트 변환 전용 풀스펙 프롬프트 (crack.html 순정 100% 완전 일치)
-    const PROMPT_TEMPLATE_TEXT = `You are an AI Lore Archivist.
-Convert the provided [Source Text to convert] into structured JSON lore entries for RP.
-Use the original language of the text (Korean).
-Output ONLY a valid JSON array matching the schema below. No markdown backticks, no trailing commas.
+[Existing Lore Database]:
+{{EXISTING_LORE_DATABASE}}
 
-=========================================
-[CORE MISSION: DUAL-TASK OF LORE ARCHIVIST]
-Your core mission is to manage the Lore Database with absolute consistency. You must perform two tasks simultaneously in a single pass:
-- Read the [Source Text to convert] carefully and merge its extracted information into the [Existing Lore generated so far] provided below.
-- Do NOT create duplicate cards under similar, altered, or differently formatted names. You must directly update the fields of the existing cards from [Existing Lore generated so far] if they represent the same entity, or append NEW cards if they are completely new.
-- Output the ENTIRE updated and merged JSON array containing both the retained old cards and any newly created cards.
+[{{SOURCE_TITLE}}]:
+{{SOURCE_CONTENT}}{{CUSTOM_DIRECTIVE_BLOCK}}`;
 
-Task 1. GENERAL LORE & PROFILES (인물/관계/장소/세계관):
-- If a new character, relationship, location, item, setting, or world concept is introduced in the [Source Text to convert] that does NOT already exist in the [Existing Lore generated so far], you MUST create a NEW JSON card (object) for it.
-- If it already exists, you MUST edit and update the existing JSON card. Do NOT create duplicate cards.
-- For "character" and "relationship" type entries, you MUST populate the "promises" array ONLY with active, ongoing promises/agreements.
-    * Each item in "promises" MUST strictly follow the format: "[인물A ↔ 인물B] 무엇을 하기로 약속함" (specifying exactly who promised what to whom).
-    * CRITICAL (DELETION RULE): If a promise has been fulfilled, completed, canceled, or broken in the current context, you MUST REMOVE/OMIT it from the "promises" array completely. Do NOT keep resolved or past promises.
-    * If a new/updated promise overlaps or contradicts an existing one, overwrite it with the latest status.
-- For "relationship" type entries, ALWAYS populate the "callState" field mapping how characters address each other (e.g. {"A→B": "오빠", "B→A": "이름"}). For other types, leave it as an empty object {}.
-- "eventHistory": Actively extract and append any meaningful narrative progress, emotional changes, or actions as milestone events. You MUST ensure each event has a corresponding "quote" to capture the character's voice.
-  * "eventHistory.summary" Rules: This MUST be an extremely short, single-sentence summary (strictly under 40 characters) written in nominal style (~함). Do NOT narrate details; only write the core milestone (e.g., 'A와 화해함', '비밀 조약 체결함').
-  * quote: You MUST actively extract the most representative dialogue or inner thought of this event milestone under "quote". Do NOT omit the "quote" field unless the character was completely silent.
-- Target Length: Keep the "summary.full" of these cards strictly under 700 characters. Focus on identity and core rules, offloading specific scene descriptions to Task 2.
+    // 단일화된 공용 로어 추출 프롬프트 빌더 헬퍼
+    function getSharedLoreArchivistPrompt(sourceContent, existingLoreText, customInstruction = '', sourceTitle = 'Conversation Log', maxChars = 700) {
+        const customBlock = customInstruction && customInstruction.trim() 
+            ? `\n\n[USER DIRECTIVES - EXTRACTION GUIDELINES (MANDATORY)]:\n- ${customInstruction.trim()}` 
+            : '';
 
-Task 2. SCENE EVENTS (사건 기록) & LARGE PROMISES (대형 약속/계약):
-- Analyze the [Source Text to convert] to extract concrete, plot-critical scene milestones, major reveals, emotional shifts, or agreements that occurred in this log segment.
-- Create a NEW card of "type": "event" for each major scene milestone.
-- Create a card of "type": "promise" ONLY for major, high-stakes contracts, solemn covenants, or life-altering oaths (e.g., a psychopath's solemn oath not to harm someone, a playboy's promise to look only at you, or other major contracts/vows of similar or higher significance).
-  * This card threshold must be high. Do not create standalone "promise" cards for trivial agreements.
-  * For "type": "promise" cards, the "summary.full" field MUST strictly begin with "[진행 상황: <상태>] " (where <상태> represents the current status of the promise/contract dynamically determined by you, such as "진행중", "완료", "해제", "보류" etc.).
-  * Unlike minor promises inside profiles, a "type": "promise" card is an enduring historical record and MUST NOT be deleted even if its status is completed/resolved.
-- Focus: Capture the participants, location, the outcome of the scene, and crucially, any unresolved tension or ongoing plot threads under "hooks".
-- Target Length: Keep the "summary.full" of event cards strictly under 700 characters.
-- Event Date/Period Formatting: For "type": "event" entries, you MUST prepend the specific date or date range of the event at the very beginning of the "summary.full" field. You must strictly follow these exact formats with precise spaces:
-  * Single Date: "yyyy. mm. dd | " (Example: "2025. 10. 15 | ...". Year must be 4 digits, month and day must be 2 digits with leading zeros, separated by a dot and a space. Do NOT write "2025년 10월 15일", "2025/10/15", "2025.10.15", or "2025. 10. 15. 밤").
-  * Date Range: "yyyy. mm. dd ~ yyyy. mm. dd | " (Example: "2025. 10. 15 ~ 2025. 10. 18 | ...").
-  * Unknown Date: "Relative Timeline | " (Example: "합숙 첫째 날 낮 | ...", "축제 사흘째 밤 | ...". Only use this if the exact calendar date is unknown).
-
-=========================================
-[TOKEN-SAVING & STYLE CONSTRAINT]
-- EXCLUSION: Only the "text" field inside the "quote" array is allowed to use natural, colloquial speech (e.g. "『...』", "「...」").
-- MANDATORY STYLE: ALL other text fields—including "summary.full", "summary.compact", "summary.micro", and "state" fields—MUST be written in Korean using concise nominal/noun-ending styles (개조식 종결어미: e.g., "~함", "~임", "~음", "~했음", or noun form).
-- NEVER use polite, formal, or plain prose endings (e.g., "~합니다", "~이다", "~했다" 등 평서문/설명조 문체 영구 금지).
-
-=========================================
-[ADVANCED DEDUPLICATION & INTEGRITY RULES]
-- DIRECT UPDATE ONLY FOR PROFILES & SETTINGS (EXCLUDING 'event'):
-  * EXCLUSION (CRITICAL): This direct update rule NEVER applies to 'type': 'event'. Events must always be created as fresh, independent cards (see Task 2).
-  * ENTITY UPDATES: For all other types (character, relationship, location, item, concept, setting, promise), you must ONLY update an existing card if it represents the EXACT same entity. Preserve the existing baseline narrative and append the latest developments chronologically. If the total text approaches the 700-character budget, intellectually compress only the older, less critical details while keeping all sacred turning points verbatim. Do NOT create duplicate profile cards under altered or shortened names.
-  * NO RECENT CHANGES? OMIT OUTPUT: If there is no new narrative progress, emotional shift, or factual change for an existing card (of any type), do NOT output it at all. Omit it from the output array to save tokens.
-  * UPDATE COMPLIANCE (FOR ALL CARD TYPES): When updating the fields (especially "summary.full") of any existing card, you MUST strictly adhere to the [PROPORTIONAL NARRATIVE CONDENSING RULE] and [TOKEN-SAVING & STYLE CONSTRAINT] below to maintain style consistency and prevent narrative fragmentation.
-  * CHARACTER NAME MATCHING: Specifically for characters, if they are referred to by a shortened name or nickname in the log (e.g., "하늘"), but their full name card (e.g., "강하늘") exists in the database, you MUST directly update the existing full name card ("강하늘"). Never output a new separate card under "하늘".
-  * CANONICAL RELATIONSHIPS (↔): Specifically for relationships, they must ALWAYS be named under the strict format "NameA ↔ NameB" (with space-bracket-space, sorted alphabetically, e.g., "강하늘 ↔ 김도훈"). If a relationship card between these two characters already exists (even if written as "김도훈 ↔ 강하늘", with different separators, or different orders), you MUST reuse the exact same name of that existing card and update its fields directly.
-
-- SACRED NARRATIVE ANCHORS (핵심 서사 보존 대원칙):
-  * You MUST NEVER delete, alter, or heavily compress the core plot milestones, traumatic past events, or defining relationship turning points (e.g., family background, childhood piano hideout memory, major injuries or violent incidents).
-  * These are the sacred narrative anchors of the character's identity and must be preserved verbatim in "summary.full" even if they are old.
-
-- ANCHOR AWARENESS (CRITICAL — USER-LOCKED NARRATIVE FACTS):
-  * Some existing entries in the Lore Database have "anchor": true. These are user-locked canonical facts.
-  * For anchored entries: NEVER output or overwrite "summary", "state", "detail", "call", "callState", "cond", "imp", "sur", "emo", "gs", or "arc". These fields are PROTECTED and any output will be discarded by the merge layer.
-  * You MAY only APPEND new items to "eventHistory" (if genuinely new and memorable), or add new keywords to "triggers".
-  * If nothing new qualifies for an anchored entry, OMIT it entirely from your output. Do not echo its existing fields.
-
-=========================================
-[DYNAMIC EXTRACTION BALANCE (서사 엔진 중심 수급 원칙)]
-- CHARACTER, RELATIONSHIP (relationship), and PROMISE (promise) are the absolute highest priority narrative engines of this story. You must be extremely vigilant in creating or updating these types whenever a bond shifts, an emotional milestone is reached, or an agreement is made.
-- Other background types like "location", "concept", and "setting" should ONLY be created or updated when a highly significant, plot-defining physical transformation or world-rule change actually occurs. Never create or update these for minor, transient details.
-
-=========================================
-[STRICT EVENT CARD RULES (사건 카드 수호 규칙)]
-- EVENT NAMING RULE: Never include turn markers (e.g. t12, turn 12), dates, or time indicators in the event "name" or "title". Keep it strictly as a clean, thematic title in the conversation language (e.g., '비밀의 방에서의 야간 비밀 회동', '헤르미온느의 약점 고백', '칼잡이의 습격과 대처').
-- EVENT INDEPENDENCE & IMMUTABILITY (NEVER OVERWRITE): Every scene event milestone MUST be created as a separate, distinct NEW card with its own unique descriptive title representing that specific scene. NEVER reuse, overwrite, or recycle the name of an existing event card, even if the scene takes place in the same setting or involves the same characters. Every event card is a permanent, immutable chronological snapshot.
-- EVENT SIGNIFICANCE CRITERIA (사건 추출의 실질성 원칙):
-  * Focus on the SUBSTANCE of the interaction, not just the setting.
-  * Even if the scene is set in a casual, daily-life environment (e.g., eating dinner, taking a walk, resting), if a significant emotional shift, a critical agreement, a major confession, or a narrative reveal actually occurs, you MUST extract it as an "event" card.
-  * Only ignore routine, meaningless small talk that has no narrative consequence or emotional development.
-
-=========================================
-[CONTEXTUAL QUOTE PLACEMENT (어록의 입체적 배정 원칙)]
-- Do NOT blindly record all quotes under 'character' cards. Instead, record the dialogue or inner thoughts inside the "quote" object of an "eventHistory" entry of the specific card that they define most critically:
-  * RELATIONSHIP QUOTES: If a quote defines a relationship shift, emotional bond, or oath between two characters, record it inside the "eventHistory" of the corresponding "relationship" card.
-  * EVENT QUOTES: If a quote is the defining highlight or climax of a scene event, record it inside the "eventHistory" of that specific "event" card.
-  * LOCATION QUOTES: If a quote is deeply tied to a location's atmosphere or occurrence, record it inside the "eventHistory" of that "location" card.
-  * CHARACTER QUOTES: Otherwise, default to recording it inside the "eventHistory" of the speaker's "character" card.
-
-=========================================
-[PROPORTIONAL NARRATIVE CONDENSING RULE (summary.full: Max 700 Chars)]
-- You are editing/creating the "summary.full" field, which has a strict 700-character budget.
-- When updating an existing entity's "summary.full" to reflect new events:
-  * If the existing summary length is UNDER 550 characters, you MUST copy the existing summary text WORD-FOR-WORD (Verbatim) and simply APPEND the new events chronologically at the end.
-  * If the combined length approaches or exceeds 700 characters, you MUST perform "Proportional Narrative Condensing":
-    - Priority 1 (Verbatim Preservation): Look at "eventHistory", "promises", and "callState". The nominal sentences in the summary describing these critical turning points (e.g., 고백함, 중상 입음, 계약 체결함) must be preserved VERBATIM. Never summarize or delete them.
-    - Priority 2 (Latest Situation): Append the events from the latest [Source Text to convert] in a highly dense nominal style at the very end of the summary.
-    - Priority 3 (Condensing Zone): Intellectually condense only the trivial, older, or minor past descriptions in the middle of the summary into brief, high-density background clauses (e.g., "~한 가벼운 일상이 있었으나").
- - Date Prefix Preservation (CRITICAL): If the card being updated is an "event" type, you MUST preserve the exact date prefix at the very beginning of "summary.full" (e.g., "yyyy. mm. dd | " or "Relative Timeline | ") without changing even a single digit, space, or period.
- - Ensure the entire updated summary is a single, grammatically complete, flowing paragraph ending in nominal style. Never end with an unfinished sentence or trailing dots (…).
-
-=========================================
-[METADATA PRESERVATION & UPDATE RULES]
-You MUST NOT lose or overwrite the other fields in the JSON. Preserve and update them with extreme care:
-- "triggers": Maintain existing keyword patterns, appending new relevant search queries.
-- "promises": Maintain active promises. Ensure all entries strictly use the "[인물A ↔ 인물B] 약속 내용" format. If a minor promise is completely resolved or broken, remove it. If it is updated, replace it with the latest status. Distinct promises must all be preserved separately.
-- "callState": Strictly preserve and update the honorific/vocative relationship matrix (from→to: title).
-
-=========================================
-[MEMORABLE QUOTES (명대사 및 어록 보존 규칙)]
-  * When extracting a key narrative event (eventHistory) representing emotional shifts, relationship milestones, or contract execution, always record the most influential and memorable dialogue or inner thoughts representing that event inside the quote object of that event.
-    - Dialogue (대사): Use 『 』 bracket quotes. e.g., "speaker": "해리포터", "listener": "론", "text": "『제발 한 번만 내 말 들어줘』"
-    - Inner Thoughts (속마음/독백): Use 「 」 bracket quotes. e.g., "speaker": "해리포터", "listener": "self", "text": "「볼드모트에게 절대로 지고 싶지 않음」"
-  * CRITICAL JSON SAFETY: Inside any JSON string values, you MUST NEVER use double quotes (") for dialogue or emphasis. Use single quotes (') or bracket-quotes instead to prevent JSON parsing syntax crashes.
-
-Schema:
-${SCHEMA_FORMAT}
-
-[Existing Lore generated so far]:
-{existing_lore}
-
-[Source Text to convert]:
-`;
-
-    // 2) 대화 로그 추출 전용 풀스펙 프롬프트 (crack.html 순정 100% 완전 일치)
-    const PROMPT_TEMPLATE_CHAT = `You are an AI Lore Archivist.
-Convert the following conversation log into structured JSON lore entries for RP.
-Output ONLY a valid JSON array matching the schema. No markdown backticks, no trailing commas.
-
-=========================================
-[CORE MISSION: DUAL-TASK OF LORE ARCHIVIST]
-Your core mission is to manage the Lore Database with absolute consistency. You must perform two tasks simultaneously in a single pass:
-
-Task 1. GENERAL LORE & PROFILES (인물/관계/장소/세계관):
-- If a new character, relationship, location, item, setting, or world concept is introduced in the [Conversation Log] that does NOT already exist in the [Existing Lore Database], you MUST create a NEW JSON card (object) for it.
-- If it already exists, you MUST edit and update the existing JSON card. Do NOT create duplicate cards.
-- For "character" and "relationship" type entries, you MUST populate the "promises" array ONLY with active, ongoing promises/agreements.
-  * Each item in "promises" MUST strictly follow the format: "[인물A ↔ 인물B] 무엇을 하기로 약속함" (specifying exactly who promised what to whom).
-  * CRITICAL (DELETION RULE): If a promise has been fulfilled, completed, canceled, or broken in the current context, you MUST REMOVE/OMIT it from the "promises" array completely. Do NOT keep resolved or past promises.
-  * If a new/updated promise overlaps or contradicts an existing one, overwrite it with the latest status.
-- For "relationship" type entries, ALWAYS populate the "callState" field mapping how characters address each other (e.g. {"A→B": "오빠", "B→A": "이름"}). For other types, leave it as an empty object {}.
-- "eventHistory": Actively extract and append any meaningful narrative progress, emotional changes, or actions as milestone events. You MUST ensure each event has a corresponding "quote" to capture the character's voice.
-  * "eventHistory.summary" Rules: This MUST be an extremely short, single-sentence summary (strictly under 40 characters) written in nominal style (~함). Do NOT narrate details; only write the core milestone (e.g., 'A와 화해함', '비밀 조약 체결함').
-  * quote: You MUST actively extract the most representative dialogue or inner thought of this event milestone under "quote". Do NOT omit the "quote" field unless the character was completely silent.
-- Target Length: Keep the "summary.full" of these cards strictly under 700 characters. Focus on identity and core rules, offloading specific scene descriptions to Task 2.
-
-Task 2. SCENE EVENTS (사건 기록) & LARGE PROMISES (대형 약속/계약):
-- Analyze the [Conversation Log] to extract concrete, plot-critical scene milestones, major reveals, emotional shifts, or agreements that occurred in this log segment.
-- Create a NEW card of "type": "event" for each major scene milestone.
-- Create a card of "type": "promise" ONLY for major, high-stakes contracts, solemn covenants, or life-altering oaths (e.g., a psychopath's solemn oath not to harm someone, a playboy's promise to look only at you, or other major contracts/vows of similar or higher significance).
-  * This card threshold must be high. Do not create standalone "promise" cards for trivial agreements.
-  * For "type": "promise" cards, the "summary.full" field MUST strictly begin with "[진행 상황: <상태>] " (where <상태> represents the current status of the promise/contract dynamically determined by you, such as "진행중", "완료", "해제", "보류" etc.).
-  * Unlike minor promises inside profiles, a "type": "promise" card is an enduring historical record and MUST NOT be deleted even if its status is completed/resolved.
-- Focus: Capture the participants, location, the outcome of the scene, and crucially, any unresolved tension or ongoing plot threads under "hooks".
-- Target Length: Keep the "summary.full" of event cards strictly under 700 characters.
-- Event Date/Period Formatting: For "type": "event" entries, you MUST prepend the specific date or date range of the event at the very beginning of the "summary.full" field. You must strictly follow these exact formats with precise spaces:
-  * Single Date: "yyyy. mm. dd | " (Example: "2025. 10. 15 | ...". Year must be 4 digits, month and day must be 2 digits with leading zeros, separated by a dot and a space. Do NOT write "2025년 10월 15일", "2025/10/15", "2025.10.15", or "2025. 10. 15. 밤").
-  * Date Range: "yyyy. mm. dd ~ yyyy. mm. dd | " (Example: "2025. 10. 15 ~ 2025. 10. 18 | ...").
-  * Unknown Date: "Relative Timeline | " (Example: "합숙 첫째 날 낮 | ...", "축제 사흘째 밤 | ...". Only use this if the exact calendar date is unknown).
-
-=========================================
-[TOKEN-SAVING & STYLE CONSTRAINT]
-- EXCLUSION: Only the "text" field inside the "quote" array is allowed to use natural, colloquial speech (e.g. "『...』", "「...」").
-- MANDATORY STYLE: ALL other text fields—including "summary.full", "summary.compact", "summary.micro", and "state" fields—MUST be written in Korean using concise nominal/noun-ending styles (개조식 종결어미: e.g., "~함", "~임", "~음", "~했음", or noun form).
-- NEVER use polite, formal, or plain prose endings (e.g., "~합니다", "~이다", "~했다" 등 평서문/설명조 문체 영구 금지).
-
-=========================================
-[ADVANCED DEDUPLICATION & INTEGRITY RULES]
-- DIRECT UPDATE ONLY FOR PROFILES & SETTINGS (EXCLUDING 'event'):
-  * EXCLUSION (CRITICAL): This direct update rule NEVER applies to 'type': 'event'. Events must always be created as fresh, independent cards (see Task 2).
-  * ENTITY UPDATES: For all other types (character, relationship, location, item, concept, setting, promise), you must ONLY update an existing card if it represents the EXACT same entity. Preserve the existing baseline narrative and append the latest developments chronologically. If the total text approaches the 700-character budget, intellectually compress only the older, less critical details while keeping all sacred turning points verbatim. Do NOT create duplicate profile cards under altered or shortened names.
-  * NO RECENT CHANGES? OMIT OUTPUT: If there is no new narrative progress, emotional shift, or factual change for an existing card (of any type), do NOT output it at all. Omit it from the output array to save tokens.
-  * UPDATE COMPLIANCE (FOR ALL CARD TYPES): When updating the fields (especially "summary.full") of any existing card, you MUST strictly adhere to the [PROPORTIONAL NARRATIVE CONDENSING RULE] and [TOKEN-SAVING & STYLE CONSTRAINT] below to maintain style consistency and prevent narrative fragmentation.
-  * CHARACTER NAME MATCHING: Specifically for characters, if they are referred to by a shortened name or nickname in the log (e.g., "하늘"), but their full name card (e.g., "강하늘") exists in the database, you MUST directly update the existing full name card ("강하늘"). Never output a new separate card under "하늘".
-  * CANONICAL RELATIONSHIPS (↔): Specifically for relationships, they must ALWAYS be named under the strict format "NameA ↔ NameB" (with space-bracket-space, sorted alphabetically, e.g., "강하늘 ↔ 김도훈"). If a relationship card between these two characters already exists (even if written as "김도훈 ↔ 강하늘", with different separators, or different orders), you MUST reuse the exact same name of that existing card and update its fields directly.
-
-- SACRED NARRATIVE ANCHORS (핵심 서사 보존 대원칙):
-  * You MUST NEVER delete, alter, or heavily compress the core plot milestones, traumatic past events, or defining relationship turning points (e.g., family background, childhood piano hideout memory, major injuries or violent incidents).
-  * These are the sacred narrative anchors of the character's identity and must be preserved verbatim in "summary.full" even if they are old.
-
-- ANCHOR AWARENESS (CRITICAL — USER-LOCKED NARRATIVE FACTS):
-  * Some existing entries in the Lore Database have "anchor": true. These are user-locked canonical facts.
-  * For anchored entries: NEVER output or overwrite "summary", "state", "detail", "call", "callState", "cond", "imp", "sur", "emo", "gs", or "arc". These fields are PROTECTED and any output will be discarded by the merge layer.
-  * You MAY only APPEND new items to "eventHistory" (if genuinely new and memorable), or add new keywords to "triggers".
-  * If nothing new qualifies for an anchored entry, OMIT it entirely from your output. Do not echo its existing fields.
-
-=========================================
-[DYNAMIC EXTRACTION BALANCE (서사 엔진 중심 수급 원칙)]
-- CHARACTER, RELATIONSHIP (relationship), and PROMISE (promise) are the absolute highest priority narrative engines of this story. You must be extremely vigilant in creating or updating these types whenever a bond shifts, an emotional milestone is reached, or an agreement is made.
-- Other background types like "location", "concept", and "setting" should ONLY be created or updated when a highly significant, plot-defining physical transformation or world-rule change actually occurs. Never create or update these for minor, transient details.
-
-=========================================
-[STRICT EVENT CARD RULES (사건 카드 수호 규칙)]
-- EVENT NAMING RULE: Never include turn markers (e.g. t12, turn 12), dates, or time indicators in the event "name" or "title". Keep it strictly as a clean, thematic title in the conversation language (e.g., '비밀의 방에서의 야간 비밀 회동', '헤르미온느의 약점 고백', '칼잡이의 습격과 대처').
-- EVENT INDEPENDENCE & IMMUTABILITY (NEVER OVERWRITE): Every scene event milestone MUST be created as a separate, distinct NEW card with its own unique descriptive title representing that specific scene. NEVER reuse, overwrite, or recycle the name of an existing event card, even if the scene takes place in the same setting or involves the same characters. Every event card is a permanent, immutable chronological snapshot.
-- EVENT SIGNIFICANCE CRITERIA (사건 추출의 실질성 원칙):
-  * Focus on the SUBSTANCE of the interaction, not just the setting.
-  * Even if the scene is set in a casual, daily-life environment (e.g., eating dinner, taking a walk, resting), if a significant emotional shift, a critical agreement, a major confession, or a narrative reveal actually occurs, you MUST extract it as an "event" card.
-  * Only ignore routine, meaningless small talk that has no narrative consequence or emotional development.
-
-=========================================
-[CONTEXTUAL QUOTE PLACEMENT (어록의 입체적 배정 원칙)]
-- Do NOT blindly record all quotes under 'character' cards. Instead, record the dialogue or inner thoughts inside the "quote" object of an "eventHistory" entry of the specific card that they define most critically:
-  * RELATIONSHIP QUOTES: If a quote defines a relationship shift, emotional bond, or oath between two characters, record it inside the "eventHistory" of the corresponding "relationship" card.
-  * EVENT QUOTES: If a quote is the defining highlight or climax of a scene event, record it inside the "eventHistory" of that specific "event" card.
-  * LOCATION QUOTES: If a quote is deeply tied to a location's atmosphere or occurrence, record it inside the "eventHistory" of that "location" card.
-  * CHARACTER QUOTES: Otherwise, default to recording it inside the "eventHistory" of the speaker's "character" card.
-
-=========================================
-[PROPORTIONAL NARRATIVE CONDENSING RULE (summary.full: Max 700 Chars)]
-- You are editing/creating the "summary.full" field, which has a strict 700-character budget.
-- When updating an existing entity's "summary.full" to reflect new events:
-  * If the existing summary length is UNDER 550 characters, you MUST copy the existing summary text WORD-FOR-WORD (Verbatim) and simply APPEND the new events chronologically at the end.
-  * If the combined length approaches or exceeds 700 characters, you MUST perform "Proportional Narrative Condensing":
-    - Priority 1 (Verbatim Preservation): Look at "eventHistory", "promises", and "callState". The nominal sentences in the summary describing these critical turning points (e.g., 고백함, 중상 입음, 계약 체결함) must be preserved VERBATIM. Never summarize or delete them.
-    - Priority 2 (Latest Situation): The events from the latest [Conversation Log] must be appended in a highly dense nominal style at the very end of the summary.
-    - Priority 3 (Condensing Zone): Intellectually condense only the trivial, older, or minor past descriptions in the middle of the summary into brief, high-density background clauses (e.g., "~한 가벼운 일상이 있었으나").
-  - Date Prefix Preservation (CRITICAL): If the card being updated is an "event" type, you MUST preserve the exact date prefix at the very beginning of "summary.full" (e.g., "yyyy. mm. dd | " or "Relative Timeline | ") without changing even a single digit, space, or period.
-  - Ensure the entire updated summary is a single, grammatically complete, flowing paragraph ending in nominal style. Never end with an unfinished sentence or trailing dots (…).
-
-=========================================
-[METADATA PRESERVATION & UPDATE RULES]
-You MUST NOT lose or overwrite the other fields in the JSON. Preserve and update them with extreme care:
-- "triggers": Maintain existing keyword patterns, appending new relevant search queries.
-- "promises": Maintain active promises. Ensure all entries strictly use the "[인물A ↔ 인물B] 약속 내용" format. If a minor promise is completely resolved or broken, remove it. If it is updated, replace it with the latest status. Distinct promises must all be preserved separately.
-- "callState": Strictly preserve and update the honorific/vocative relationship matrix (from→to: title).
-
-=========================================
-[MEMORABLE QUOTES (명대사 및 어록 보존 규칙)]
-  * When extracting a key narrative event (eventHistory) representing emotional shifts, relationship milestones, or contract execution, always record the most influential and memorable dialogue or inner thoughts representing that event inside the quote object of that event.
-    - Dialogue (대사): Use 『 』 bracket quotes. e.g., "speaker": "해리포터", "listener": "론", "text": "『제발 한 번만 내 말 들어줘』"
-    - Inner Thoughts (속마음/독백): Use 「 」 bracket quotes. e.g., "speaker": "해리포터", "listener": "self", "text": "「볼드모트에게 절대로 지고 싶지 않음」"
-  * CRITICAL JSON SAFETY: Inside any JSON string values, you MUST NEVER use double quotes (") for dialogue or emphasis. Use single quotes (') or bracket-quotes instead to prevent JSON parsing syntax crashes.
-
-Schema:
-${SCHEMA_FORMAT}
-
-Existing Lore Database:
-{existing_lore}
-
-Conversation Log:
-`;
-
-    const PROMPT_TEMPLATE = PROMPT_TEMPLATE_CHAT;
-
+        return PROMPT_TEMPLATE_LORE_EXTRACT
+            .replace(/\{\{SOURCE_TITLE\}\}/g, sourceTitle)
+            .replace(/\{\{MAX_CHARS\}\}/g, String(maxChars))
+            .replace(/\{\{EXISTING_LORE_DATABASE\}\}/g, existingLoreText || "")
+            .replace(/\{\{SOURCE_CONTENT\}\}/g, sourceContent || "")
+            .replace(/\{\{CUSTOM_DIRECTIVE_BLOCK\}\}/g, customBlock);
+    }
+    
     // ==========================================
     // 로깅, 턴수 및 스냅샷 복원 엔진
     // ==========================================
@@ -4185,8 +4169,9 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         for (let ci = 0; ci < chunks.length; ci++) {
             if (statusEl) statusEl.textContent = `텍스트 변환 중... (청크 ${ci+1}/${chunks.length})`;
             const customInst = localStorage.getItem(`pastel_crack_lore_auto_ext_instruction_ep_${chatId}`) || '';
-            const customBlock = customInst.trim() ? `\n\n[USER DIRECTIVES - EXTRACTION GUIDELINES (MANDATORY)]:\n- ${customInst.trim()}` : '';
-            const finalPrompt = PROMPT_TEMPLATE_TEXT.replace('{existing_lore}', JSON.stringify(accumulatedLore, null, 2)) + chunks[ci] + customBlock;
+            const userMaxChars = parseInt(localStorage.getItem(`pastel_crack_lore_merge_maxchars_ep_${chatId}`), 10) || 700;
+            const entriesText = JSON.stringify(accumulatedLore, null, 2);
+            const finalPrompt = getSharedLoreArchivistPrompt(chunks[ci], entriesText, customInst, 'Source Text to convert', userMaxChars);
 
             const body = {
                 contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
@@ -4340,8 +4325,8 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         }
 
         const customInst = localStorage.getItem(`pastel_crack_lore_auto_ext_instruction_ep_${episodeId}`) || '';
-        const customBlock = customInst.trim() ? `\n\n[USER DIRECTIVES - EXTRACTION GUIDELINES (MANDATORY)]:\n- ${customInst.trim()}` : '';
-        const finalPrompt = PROMPT_TEMPLATE_CHAT.replace('{existing_lore}', entriesText) + context + customBlock;
+        const userMaxChars = parseInt(localStorage.getItem(`pastel_crack_lore_merge_maxchars_ep_${episodeId}`), 10) || 700;
+        const finalPrompt = getSharedLoreArchivistPrompt(contextText, entriesText, customInst, 'Conversation Log', userMaxChars);
 
         const body = {
             contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
@@ -4416,127 +4401,6 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         } else {
             recordExtractLog(episodeId, currentTurn, 0, targetList.length, 'failed', selectedModel, Date.now() - _manT0);
             return 0;
-        }
-    }
-
-    /* ==========================================================================
-     * 3. 백그라운드 자동 로어 추출 엔진 (crack.html 100% 일치)
-     * ========================================================================== */
-    async function executeBackgroundAutoExtraction(episodeId) {
-        const _autoT0 = Date.now();
-        let selectedModel = localStorage.getItem('pastel_crack_lore_extract_model') || 'gemini-3.6-flash';
-        if (selectedModel === '_custom') selectedModel = localStorage.getItem('pastel_crack_lore_extract_custom') || 'gemini-3.6-flash';
-
-        const reasoningValue = localStorage.getItem('pastel_crack_lore_reasoning') || 'medium';
-        const thinkingConfig = {};
-        if (selectedModel.includes('gemini-3') || selectedModel.includes('gemini-2.0-flash-thinking')) {
-            if (reasoningValue !== 'off') {
-                if (reasoningValue === 'budget') thinkingConfig.thinkingBudget = parseInt(localStorage.getItem('pastel_crack_lore_reasoning_budget')) || 2048;
-                else thinkingConfig.thinkingLevel = reasoningValue;
-            }
-        }
-
-        const url = getGeminiOrFirebaseEndpoint(selectedModel, 'generateContent');
-        if (!url) return;
-
-        const history = await fetchCrackMessagesPure(episodeId);
-        if (!history || history.length < 2) return;
-
-        const extTurns = parseInt(localStorage.getItem(`pastel_crack_lore_auto_ext_turns_ep_${episodeId}`), 10) || 6;
-        const targetList = history.slice(-(extTurns * 2));
-        const context = targetList.map(m => {
-            const role = (m.role === 'user' || m.type === 'user') ? 'user' : 'assistant';
-            const cleanText = stripLoreInjectionBlock(m.content || m.message || m.text || '');
-            return `${role}: ${cleanText}`;
-        }).join("\n");
-
-        const packName = `Ep_Crack_${episodeId}_Pack`;
-        let entriesText = "[]";
-        if (loreDb) {
-            try {
-                const existingEntries = await loreDb.entries.where('packName').equals(packName).toArray();
-                if (existingEntries.length > 0) {
-                    entriesText = JSON.stringify(existingEntries.slice(0, 20).map(e => {
-                        const cloned = { ...e };
-                        delete cloned.id; delete cloned.packName; delete cloned.project;
-                        return cloned;
-                    }), null, 2);
-                }
-            } catch (_) {}
-        }
-
-        const customInst = localStorage.getItem(`pastel_crack_lore_auto_ext_instruction_ep_${episodeId}`) || '';
-        const customBlock = customInst.trim() ? `\n\n[USER DIRECTIVES - EXTRACTION GUIDELINES (MANDATORY)]:\n- ${customInst.trim()}` : '';
-        const finalPrompt = PROMPT_TEMPLATE_CHAT.replace('{existing_lore}', entriesText) + context + customBlock;
-
-        const body = {
-            contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-            generationConfig: Object.keys(thinkingConfig).length > 0 ? { thinkingConfig, responseMimeType: "application/json" } : { responseMimeType: "application/json" },
-            safetySettings: getSafetySettingsPayload()
-        };
-
-        try {
-            const appCheckToken = await getAppCheckToken();
-            if (!appCheckToken) return;
-
-            const headers = { 
-                "Content-Type": "application/json",
-                "X-Firebase-AppCheck": appCheckToken
-            };
-
-            const abortCtrl = new AbortController();
-            const fetchTimeout = setTimeout(() => abortCtrl.abort(), 480000); // 8분(480초) 완벽 무제한급 대기
-
-            let res;
-            try {
-                res = await fetch(url, { 
-                    method: "POST", 
-                    headers: headers, 
-                    body: JSON.stringify(body),
-                    signal: abortCtrl.signal 
-                });
-            } finally {
-                clearTimeout(fetchTimeout);
-            }
-
-            if (!res.ok) return;
-            const resData = await res.json();
-
-            // Gemini API 비용 정밀 누적 연산
-            const inTok = resData.usageMetadata?.promptTokenCount || Math.ceil(finalPrompt.length * 1.2);
-            const outTok = resData.usageMetadata?.candidatesTokenCount || 0;
-            const cost = calcGeminiApiCost(selectedModel, inTok, outTok);
-            accumulateCrackLoreCost(cost, episodeId);
-
-            const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            if (!rawText.trim()) return;
-
-            let raw = rawText.trim().replace(/^```json\s*/i, "").replace(/\s*```$/, "").trim().replace(/,(\s*[\]\}])/g, "$1");
-            const fb = raw.indexOf("["), fc = raw.indexOf("{"), first = fb === -1 ? fc : fc === -1 ? fb : Math.min(fb, fc);
-            if (first > 0) raw = raw.slice(first);
-            const lastB = Math.max(raw.lastIndexOf("]"), raw.lastIndexOf("}"));
-            if (lastB !== -1 && lastB < raw.length - 1) raw = raw.slice(0, lastB + 1);
-
-            let parsedArray = JSON.parse(raw);
-            if (parsedArray && !Array.isArray(parsedArray)) {
-                if (Array.isArray(parsedArray.entries)) parsedArray = parsedArray.entries;
-                else if (Array.isArray(parsedArray.lore)) parsedArray = parsedArray.lore;
-                else if (parsedArray.name) parsedArray = [parsedArray];
-                else parsedArray = [];
-            }
-
-            const currentTurn = getCrackChatTurns(episodeId);
-
-            if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-                try { await createLoreSnapshot(episodeId, "자동 추출 전 백업"); } catch(_) {}
-                for (const e of parsedArray) await mergeAndSaveLoreEntry(e, packName, episodeId);
-                recordExtractLog(episodeId, currentTurn, parsedArray.length, targetList.length, 'success', selectedModel, Date.now() - _autoT0);
-            } else {
-                recordExtractLog(episodeId, currentTurn, 0, targetList.length, 'failed', selectedModel, Date.now() - _autoT0);
-            }
-        } catch (err) {
-            const currentTurn = getCrackChatTurns();
-            recordExtractLog(episodeId, currentTurn, 0, 12, 'failed', selectedModel, Date.now() - _autoT0);
         }
     }
 
@@ -4745,26 +4609,87 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
             const mode = bulkModeSelect ? bulkModeSelect.value : 'keep-longest';
 
             if (mode === 'keep-longest') {
-                const sorted = [...selectedEntries].sort((a, b) => {
-                    const aSum = a.summary ? (typeof a.summary === 'object' ? (a.summary.full || '') : String(a.summary)) : '';
-                    const bSum = b.summary ? (typeof b.summary === 'object' ? (b.summary.full || '') : String(b.summary)) : '';
-                    return bSum.length - aSum.length;
-                });
-                const longestEntry = sorted[0];
-                const base = JSON.parse(JSON.stringify(longestEntry));
-                let mergedTriggers = [...base.triggers || []];
-                let mergedEntities = [...base.entities || []];
+                // [파스텔챗 순정 단순 병합] 시간순(ID순) 누적 합산 및 날짜·어록 무손실 보존
+                const chronologicalEntries = [...selectedEntries].sort((a, b) => (a.id || 0) - (b.id || 0));
+                const base = JSON.parse(JSON.stringify(chronologicalEntries[0]));
 
-                selectedEntries.forEach(e => {
-                    if (e.id === longestEntry.id) return;
-                    mergedTriggers.push(...e.triggers || []);
-                    mergedEntities.push(...e.entities || []);
-                });
+                // 1) 제목 단순 연결 (쉼표 구분)
+                base.name = chronologicalEntries.map(e => e.name).filter(Boolean).join(', ');
 
-                base.triggers = Array.from(new Set(mergedTriggers)).slice(0, 15);
-                base.entities = Array.from(new Set(mergedEntities));
-                base.summary = C.normalizeSummaryValue(base.summary, base.name, base.state);
-                base.summary.full = C.clampText(base.summary.full, maxChars);
+                // 2) 요약본 날짜 변환 및 ' | ' 한 줄 결합 헬퍼
+                const formatSummaryPart = (rawSummary) => {
+                    let text = '';
+                    if (typeof rawSummary === 'object' && rawSummary !== null) {
+                        text = rawSummary.full || rawSummary.compact || rawSummary.micro || '';
+                    } else {
+                        text = String(rawSummary || '');
+                    }
+                    text = text.trim();
+                    if (!text) return '';
+
+                    if (/^<[^>]+>/.test(text)) {
+                        return text;
+                    }
+
+                    const dateMatch = text.match(/^(\d{4}\.\s*\d{1,2}\.\s*\d{1,2}(?:\s*~\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2})?)\s*\|\s*([\s\S]*)$/);
+                    if (dateMatch) {
+                        return `<${dateMatch[1].trim()}> ${dateMatch[2].trim()}`;
+                    }
+
+                    const relMatch = text.match(/^([^|]+?)\s*\|\s*([\s\S]*)$/);
+                    if (relMatch && relMatch[1].length < 30 && !relMatch[1].includes('.')) {
+                        return `<${relMatch[1].trim()}> ${relMatch[2].trim()}`;
+                    }
+
+                    return text;
+                };
+
+                const combinedFull = chronologicalEntries.map(e => {
+                    const s = typeof e.summary === 'object' && e.summary !== null ? e.summary.full : e.summary;
+                    return formatSummaryPart(s);
+                }).filter(Boolean).join(' | ');
+
+                const combinedCompact = chronologicalEntries.map(e => {
+                    const s = typeof e.summary === 'object' && e.summary !== null ? e.summary.compact : e.summary;
+                    return formatSummaryPart(s);
+                }).filter(Boolean).join(' | ');
+
+                const combinedMicro = chronologicalEntries.map(e => {
+                    if (typeof e.summary === 'object' && e.summary !== null && e.summary.micro) {
+                        return e.summary.micro;
+                    }
+                    return e.state || e.name || '';
+                }).filter(Boolean).join(' | ');
+
+                base.summary = {
+                    full: combinedFull,
+                    compact: combinedCompact,
+                    micro: combinedMicro
+                };
+
+                // 3) 트리거 순수 합집합 (15개 제한 없이 온전히 결합)
+                base.triggers = Array.from(new Set(chronologicalEntries.flatMap(e => e.triggers || []).filter(Boolean)));
+
+                // 4) 엔티티 순수 합집합
+                base.entities = Array.from(new Set(chronologicalEntries.flatMap(e => e.entities || []).filter(Boolean)));
+
+                // 5) 약속(promises) 순수 합집합
+                base.promises = Array.from(new Set(chronologicalEntries.flatMap(e => e.promises || []).filter(Boolean)));
+
+                // 6) 사건 이력(eventHistory) 순수 합집합 (중복 사건 배제 및 턴 순서 정렬)
+                const allEvents = chronologicalEntries.flatMap(e => e.eventHistory || []).filter(Boolean);
+                const uniqueEvents = [];
+                const seenEvents = new Set();
+                for (const ev of allEvents) {
+                    const key = (ev.summary || '').trim();
+                    if (!seenEvents.has(key)) {
+                        seenEvents.add(key);
+                        uniqueEvents.push(ev);
+                    }
+                }
+                uniqueEvents.sort((a, b) => (a.turn || 0) - (b.turn || 0));
+                base.eventHistory = uniqueEvents;
+
                 mergedDraft = base;
             } else {
                 const cleanList = selectedEntries.map(({ id, packName, project, enabled, ...rest }) => rest);
@@ -4779,12 +4704,14 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
 2. 일반 타입 병합 지침:
    - 일반 타입(character, location, item, event, concept, setting, promise 등)의 경우, 병합 대상 중 가장 완성도가 높고 구체적이며 온전한 이름(예: 'Harry' 대신 'Harry Potter')을 그대로 "name"으로 채택하십시오. 임의로 전혀 새로운 명칭이나 제3의 설명조 단어를 지어내지 마십시오.
 
-[약속 병합 및 상태 지침 (Promise Merging & Status Rule)]:
-1. 인물/관계 카드 내의 "promises" 배열 병합 지침:
-   - 병합 대상 카드들의 모든 "promises" 필드를 수합하십시오.
-   - 만약 동일한 주체(예: [인물A ↔ 인물B]) 간에 체결된 약속 중 중복/대치되거나 갱신된 내역이 감지되면, 무조건 가장 최근 정보의 값만 보존하고 과거의 중복 약속 문자열은 삭제하십시오.
-   - 주체가 다르거나 서로 다른 독립된 약속들은 누락 없이 각각의 고유 스트링 형태로 보존하여 배열에 모두 남겨놓아야 합니다. (배열 내부 포맷은 무조건 "[인물A ↔ 인물B] 약속 행동" 형식을 엄격히 고수해야 합니다.)
-2. 대형 독립 약속(type: "promise") 카드 병합 지침:
+[약속 병합 및 최신성 판별 지침 (Promise Merging & Chronology Rule)]:
+* 중요: 제공된 병합 대상 배열에서 뒤쪽에 위치한 카드가 시간상 더 나중에 생성된 '최신 정보(Latest)'입니다. 약속 내용이나 상태가 서로 다를 경우 반드시 배열 뒤쪽의 최신 카드 정보를 우선 반영하십시오.
+1. 이벤트(event) 카드 병합 시:
+   - 모든 약속 항목 뒤의 상태 표지(예: (진행중), (완료), (보류), (파기) 등 순수 괄호)를 그대로 유지하십시오. 동일 약속에 대해 상태가 갱신된 경우 뒤쪽(최신) 카드의 상태를 채택하십시오.
+2. 이벤트(event) 카드를 제외한 모든 일반 카드 병합 시:
+   - 이미 완료되거나 파기된 약속은 배열에서 완전히 삭제하고, 현재 유효하게 '진행 중'인 약속만 "[인물A ↔ 인물B] 약속 내용" 형식으로 남기십시오.
+3. 주체가 다르거나 서로 다른 독립된 약속들은 누락 없이 각각 보존하십시오.
+4. 대형 독립 약속(type: "promise") 카드 병합 지침:
    - 대형 약속 카드를 병합할 때, "summary.full" 맨 처음에 표시되는 접두사인 "[진행 상황: <상태>] " 값을 완벽히 보존하십시오. 
    - 상태값(<상태>)은 병합 대상 카드들의 상태 중 가장 최근/최신의 실질적 상황을 고려하여 AI가 상황에 맞춰 동적으로 판단하여 기입하십시오 (예: [진행 상황: 완료], [진행 상황: 진행중] 등).
 
@@ -4801,7 +4728,7 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
   * Do NOT use raw newline characters (Enter) inside string values. Keep the merged summary formatted cleanly on a single line.
 
 [사건 및 대사 병합 규칙 (Event History & Quote Merging Rule)]:
-- "eventHistory": 병합 대상 카드들이 가진 모든 사건 기록을 연대순으로 정밀 통합하십시오. 중복되는 사건(summary 내용이 90% 이상 겹침)은 제거하되, 해당 사건의 "quote"가 있을 경우 절대 유실하지 말고 온전히 병합 보존하여 최종 JSON에 출력해야 합니다.
+- "eventHistory": 병합 대상 카드들이 가진 모든 사건 기록을 연대순으로 정밀 통합하십시오. 각 사건의 "turn" 번호(정수 숫자)는 절대로 누락하거나 변경하지 말고 그대로 보존해야 합니다. 중복되는 사건(summary 내용이 90% 이상 겹침)은 하나로 합치되, 해당 사건의 "turn"과 "quote"가 유실되지 않도록 온전히 보존하여 최종 JSON에 출력해야 합니다.
 
 [TOKEN-SAVING & STYLE CONSTRAINT (명사형 개조식 필수)]:
 - EXCLUSION: Only the "text" field inside the "quote" array is allowed to use natural, colloquial speech (e.g. "Briefly 『...』", "「...」").
@@ -4809,10 +4736,10 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
 - NEVER use polite, formal, or plain prose endings (e.g., "~합니다", "~이다", "~했다" 등 평서문/설명조 문체 영구 금지).
 
 [summary.full BUDGET]:
-- "summary.full" 줄거리 요약은 설정된 최대 700자 이하를 꽉 채워 최대한 구체적으로 작성하십시오. (전체 카드 수납 메타를 포함한 물리적 세이브 상한선은 ${maxChars}자입니다).
+- "summary.full" 줄거리 요약은 설정된 최대 ${maxChars}자 이하의 예산을 꽉 채워 최대한 구체적으로 작성하십시오.
 
 [MEMORABLE QUOTE (명대사 및 어록 보존 규칙)]
-  * When extracting a key narrative event (eventHistory) representing emotional shifts, relationship milestones, or contract execution, always record the most influential and memorable dialogue or inner thoughts representing that event inside the quote object of that event.
+  * When merging the event histories of the duplicate entries, ensure that any critical dialogue or inner thoughts stored inside the "quote" object of each event are preserved verbatim and kept in chronological order.
   * CRITICAL JSON SAFETY: Inside any JSON string values, you MUST NEVER use double quotes (") for dialogue or emphasis. Use single quotes (') or bracket-quotes instead to prevent JSON parsing syntax crashes.
 
 [출력 규칙]:
@@ -4935,6 +4862,14 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                     await loreDb.embeddings.where('entryId').equals(targetMaster.id).delete();
                     await loreDb.entries.where('id').anyOf(toDelete.map(d => d.id)).delete();
                     await loreDb.embeddings.where('entryId').anyOf(toDelete.map(d => d.id)).delete();
+
+                    // 병합 완료된 신규 카드에 대해 자동 임베딩 발급 및 팩 카운트 갱신
+                    const totalCount = await loreDb.entries.where('packName').equals(packName).count();
+                    await loreDb.packs.put({ name: packName, entryCount: totalCount, project: "" });
+                    const savedFinal = await loreDb.entries.get(targetMaster.id);
+                    if (savedFinal) {
+                        await executeLoreEmbeddingForEntry(savedFinal);
+                    }
 
                     showToast("✨ 수동 로어 병합 완료!");
                     previewCard.remove();
@@ -5911,27 +5846,30 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                 fetchCrackCash();
             }, 800); // 크랙 서버 DB 차감 지연 대비 2차 확정 갱신
 
-            // AI 답변 완결 시점 백그라운드 자동 로어 추출 실행
+            // AI 답변 완결 시점: 지정 '로어 생성 주기' 도달 시 로어 업데이트 플로팅 알림 토스트 노출
             const targetChatId = getChatId();
             if (targetChatId && targetChatId !== 'global') {
                 setTimeout(async () => {
                     const extTurns = parseInt(localStorage.getItem(`pastel_crack_lore_auto_ext_turns_ep_${targetChatId}`), 10) || 6;
                     const currentTurns = await getCrackUserTurnsRealtime(targetChatId);
-                    const lastAutoTurnKey = `pastel_crack_last_auto_ext_turn_${targetChatId}`;
-                    const lastAutoTurn = parseInt(localStorage.getItem(lastAutoTurnKey) || '-1', 10);
+                    const lastNotifiedKey = `pastel_crack_last_notified_turn_${targetChatId}`;
+                    const lastNotifiedTurn = parseInt(localStorage.getItem(lastNotifiedKey) || '-1', 10);
 
-                    if (currentTurns > 0 && currentTurns % extTurns === 0 && currentTurns !== lastAutoTurn) {
-                        localStorage.setItem(lastAutoTurnKey, String(currentTurns));
-                        try {
-                            showLoreExtPersistentToast("🔮 로어 자동 생성 중...");
-                            await executeBackgroundAutoExtraction(targetChatId);
-                            showToast("✨ 로어 생성 완료!");
-                            renderCrackActiveLores();
-                        } catch (_) {
-                            showToast("❌ 로어 자동 생성 실패");
-                        } finally {
-                            hideLoreExtPersistentToast();
-                        }
+                    if (currentTurns > 0 && currentTurns % extTurns === 0 && currentTurns !== lastNotifiedTurn) {
+                        localStorage.setItem(lastNotifiedKey, String(currentTurns));
+
+                        showClickableToast("🔮 로어를 업데이트 해주세요", async () => {
+                            try {
+                                showLoreExtPersistentToast(`🔮 최근 ${extTurns}턴 로어 생성 중...`);
+                                await executeManualLoreExtraction(targetChatId, extTurns);
+                                showToast("✨ 로어 생성 완료!");
+                                renderCrackActiveLores();
+                            } catch (err) {
+                                showToast("❌ 로어 생성 실패");
+                            } finally {
+                                hideLoreExtPersistentToast();
+                            }
+                        }, true);
                     }
                 }, 500);
             }
