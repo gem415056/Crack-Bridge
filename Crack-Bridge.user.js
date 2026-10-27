@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.5.0
+// @version      2.5.1
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -4440,9 +4440,9 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         }
 
         const customInst = localStorage.getItem(`pastel_crack_lore_auto_ext_instruction_ep_${episodeId}`) || '';
-        const customBlock = customInst.trim() ? `\n\n[USER DIRECTIVES - EXTRACTION GUIDELINES (MANDATORY)]:\n- ${customInst.trim()}` : '';
-        const finalPrompt = PROMPT_TEMPLATE_CHAT.replace('{existing_lore}', entriesText) + contextText + customBlock;
-
+        const userMaxChars = parseInt(localStorage.getItem(`pastel_crack_lore_merge_maxchars_ep_${episodeId}`), 10) || 700;
+        const finalPrompt = getSharedLoreArchivistPrompt(contextText, entriesText, customInst, 'Conversation Log', userMaxChars);
+        
         const body = {
             contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
             generationConfig: Object.keys(thinkingConfig).length > 0 ? { thinkingConfig, responseMimeType: "application/json" } : { responseMimeType: "application/json" },
