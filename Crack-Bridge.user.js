@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.5.2
+// @version      2.5.3
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -2041,15 +2041,8 @@
             menuBtn = document.createElement('button');
             menuBtn.id = 'ep-native-menu-btn';
             menuBtn.type = 'button';
-            menuBtn.title = 'PASTELchat 메뉴 열기';
-            menuBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill="currentColor">
-                    <g fill-rule="evenodd" clip-rule="evenodd">
-                        <path d="M20.487 2.491a1.3 1.3 0 0 1 1.313 1.3v9.45a6.1 6.1 0 0 0-4.855-2.404 6.114 6.114 0 0 0-5.99 7.299L6.63 21.774l-.04.02c-.54.36-1.39.03-1.39-.75v-3.2H3.5c-.72 0-1.3-.58-1.3-1.299V3.849c.001-.72.58-1.3 1.3-1.3h11.574zM6 11.63h5v-1.6H6zm0-3.31h10.5v-1.6H6z"></path>
-                        <path d="M17.177 12.442a4.5 4.5 0 0 1 1.109.198q.461.144.876.38a4.53 4.53 0 0 1 2.088 2.584 4.5 4.5 0 0 1 .203 1.34 4.51 4.51 0 0 1-4.507 4.507 4.51 4.51 0 0 1-4.508-4.508 4.514 4.514 0 0 1 4.74-4.5m-.897 4.84 1.842 1.412.829-1.093-1.304-.994v-2.17H16.28z"></path>
-                    </g>
-                </svg>
-            `;
+            menuBtn.title = '보조 메뉴 열기';
+            menuBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="var(--icon_secondary)" viewBox="0 0 24 24" width="24" height="24" color="icon_secondary"><path fill-rule="evenodd" d="M15.43 6.9c.5-.25 1.07-.14 1.44.23s.48.93.23 1.44l-2.61 5.33q-.2.4-.6.6l-5.33 2.6c-.5.26-1.08.15-1.44-.22a1.25 1.25 0 0 1-.23-1.44L9.5 10.1q.2-.4.6-.6zm-6.65 8.32 3.72-1.82-1.9-1.9z" clip-rule="evenodd"></path><path fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20m0 1.6a8.41 8.41 0 0 0 0 16.8 8.41 8.41 0 0 0 0-16.8" clip-rule="evenodd"></path></svg>`;
             // 버튼 클릭 이벤트 직접 연결 (슬라이딩 애니메이션 클래스 연동)
             menuBtn.onclick = (e) => {
                 e.stopPropagation();
