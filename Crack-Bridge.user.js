@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.5.3
+// @version      2.5.4
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -221,7 +221,7 @@
             gap: 4px;
             overflow: hidden;
             white-space: nowrap;
-            padding: 8px;
+            padding: 4px;
             background: transparent;
             border: none;
             border-radius: 6px;
