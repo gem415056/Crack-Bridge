@@ -112,42 +112,67 @@
             z-index: -99999 !important;
         }
 
-       /* 1. 최상단 메인 헤더 영구 고정 (다른 부모 간섭 방지 정밀 셀렉터) */
+       /* 1. 최상단 메인 헤더 영구 고정 (부모 컨테이너만 고정하여 자식 그리드 왜곡 방지) */
         header,
-        .relative.h-full.px-3.grid.grid-cols-3.items-center,
         div[class*="group/lnb-header"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            height: 56px !important;
+            height: var(--crack-top-header-height, 56px) !important;
             transform: none !important;
             opacity: 1 !important;
             visibility: visible !important;
             z-index: 100070 !important;
             background-color: var(--bg_screen, #ffffff) !important;
+            box-sizing: border-box !important;
         }
 
-        /* 1-1. 대화방 서브 헤더 화면 상단 영구 고정 (Highfield Prep 서브헤더 100% 복원) */
-        .absolute.z-docked.left-0.w-full.h-12,
-        div.h-12.px-5.flex.justify-between.items-center,
-        div:has(> button > span.line-clamp-1) {
+        .relative.h-full.px-3.grid.grid-cols-3.items-center {
+            height: 100% !important;
+            display: grid !important;
+            align-items: center !important;
+            box-sizing: border-box !important;
+        }
+
+        /* 1-1. 대화방 서브 헤더 화면 상단 영구 고정 (메인 헤더 바로 아래 0px 간격 밀착) */
+        .absolute.z-docked.left-0.w-full.h-12 {
             position: fixed !important;
-            top: 56px !important;
+            top: var(--crack-top-header-height, 56px) !important;
             left: 0 !important;
             right: 0 !important;
             height: 48px !important;
-            transform: translate3d(0, 0, 0) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            transform: none !important;
             opacity: 1 !important;
             visibility: visible !important;
-            display: flex !important;
             z-index: 100060 !important;
             background-color: var(--bg_screen, #ffffff) !important;
+            box-sizing: border-box !important;
         }
 
-        /* 첫 메시지 가림 방지 상단 패딩 (대화창 스크롤 유령 공백 완전 소거) */
+        div.h-12.px-5.flex.justify-between.items-center {
+            height: 48px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+
+        div:has(> button > span.line-clamp-1) {
+            display: flex !important;
+            align-items: center !important;
+            height: 100% !important;
+            position: static !important;
+            margin: 0 !important;
+        }
+
+        /* 첫 메시지 가림 방지 상단 패딩 (헤더 총합 높이만큼 정확하게 보정) */
         main.relative.h-full.min-w-0.flex-1 {
-            padding-top: 108px !important;
+            padding-top: calc(var(--crack-top-header-height, 56px) + 48px) !important;
         }
         .stick-to-bottom {
             padding-top: 0 !important;
@@ -241,7 +266,7 @@
         /* 우측 서랍 컨테이너 (크랙 순정과 100% 동일한 300ms 슬라이딩 애니메이션) */
         .right-drawer-container {
             position: fixed !important;
-            top: 104px;
+            top: calc(var(--crack-top-header-height, 56px) + 48px);
             bottom: 0 !important;
             right: 0 !important;
             width: 255px !important;
@@ -446,7 +471,7 @@
         /* 상단 헤더 아래 영역만 어둡게 만드는 서랍 전용 오버레이 (300ms 페이드 애니메이션) */
         .ep-chat-drawer-overlay {
             position: fixed !important;
-            top: 104px;
+            top: calc(var(--crack-top-header-height, 56px) + 48px);
             left: 0 !important;
             right: 0 !important;
             bottom: 0 !important;
@@ -1688,7 +1713,16 @@
                             <div class="api-input-group">
                                 <label id="ep-api-label-text">Google Gemini API Key</label>
                                 <input type="text" class="api-textbox" id="ep-api-key-input">
-                                <textarea class="api-textbox" id="ep-api-firebase-textarea" style="display: none; height: 160px; resize: none;"></textarea>
+                                <textarea class="api-textbox" id="ep-api-firebase-textarea" style="display: none; height: 160px; resize: none;" placeholder="Firebase SDK 초기화 스크립트 붙여넣기..."></textarea>
+                                <div id="ep-api-firebase-extra" style="display: none; margin-top: 8px;">
+                                    <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
+                                        <select class="model-select-dropdown" id="ep-appcheck-provider-select" style="flex: 1; font-size: 11px; height: 28px;">
+                                            <option value="v3">reCAPTCHA v3 (표준 7일)</option>
+                                            <option value="enterprise">reCAPTCHA Enterprise</option>
+                                        </select>
+                                        <button type="button" id="ep-appcheck-refresh-btn" class="decentral-button" style="width: auto; height: 28px; padding: 0 10px; font-size: 11px; white-space: nowrap; cursor: pointer; border-radius: 4px; border: 1px solid #88b9c8; color: #88b9c8 !important; background: transparent !important;">토큰 갱신</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3262,6 +3296,39 @@
             };
         }
 
+        const apiFbExtra = document.getElementById('ep-api-firebase-extra');
+        const appcheckProviderSel = document.getElementById('ep-appcheck-provider-select');
+        const appcheckRefreshBtn = document.getElementById('ep-appcheck-refresh-btn');
+
+        if (appcheckProviderSel) {
+            appcheckProviderSel.value = localStorage.getItem('pastel_appcheck_provider_type') || 'v3';
+            appcheckProviderSel.onchange = (e) => {
+                localStorage.setItem('pastel_appcheck_provider_type', e.target.value);
+                // 프로바이더 변경 시 캐시 무효화 및 강제 재발급 준비
+                getAppCheckToken(true).catch(() => {});
+            };
+        }
+
+        if (appcheckRefreshBtn) {
+            appcheckRefreshBtn.onclick = async () => {
+                appcheckRefreshBtn.disabled = true;
+                appcheckRefreshBtn.textContent = "갱신 중...";
+                try {
+                    const token = await getAppCheckToken(true);
+                    if (token) {
+                        showToast("✨ App Check 7일 토큰 갱신 성공!");
+                    } else {
+                        showToast("⚠ 토큰 갱신 실패. Firebase 설정을 확인하세요.");
+                    }
+                } catch (e) {
+                    showToast("❌ 토큰 갱신 실패: " + (e.message || e));
+                } finally {
+                    appcheckRefreshBtn.disabled = false;
+                    appcheckRefreshBtn.textContent = "토큰 갱신";
+                }
+            };
+        }
+
         if (tabGemini && tabFb) {
             tabGemini.onclick = () => {
                 tabGemini.classList.add('active');
@@ -3269,6 +3336,8 @@
                 apiLabel.textContent = 'Google Gemini API Key';
                 apiKeyInp.style.display = 'block';
                 apiFbTextarea.style.display = 'none';
+                if (apiFbExtra) apiFbExtra.style.display = 'none';
+                localStorage.setItem('pastel_api_active_provider', 'gemini');
             };
             tabFb.onclick = () => {
                 tabFb.classList.add('active');
@@ -3276,7 +3345,18 @@
                 apiLabel.textContent = 'firebase script';
                 apiKeyInp.style.display = 'none';
                 apiFbTextarea.style.display = 'block';
+                if (apiFbExtra) apiFbExtra.style.display = 'block';
+                localStorage.setItem('pastel_api_active_provider', 'firebase');
             };
+
+            const savedProvider = localStorage.getItem('pastel_api_active_provider');
+            if (savedProvider === 'firebase') {
+                tabFb.click();
+            } else if (savedProvider === 'gemini') {
+                tabGemini.click();
+            } else if (apiFbTextarea && apiFbTextarea.value.trim() && (!apiKeyInp || !apiKeyInp.value.trim())) {
+                tabFb.click();
+            }
         }
 
         // 붙여넣기 및 타이핑 즉시 영구 저장 (날아감 100% 방지)
@@ -3749,6 +3829,7 @@
             const messagingSenderId = extractField('messagingSenderId');
             const appId = extractField('appId');
             const measurementId = extractField('measurementId');
+            const siteKey = extractField('siteKey') || extractField('recaptchaSiteKey') || extractField('recaptchaKey');
 
             if (apiKey || projectId) {
                 const fallbackConfig = { apiKey, projectId };
@@ -3757,6 +3838,7 @@
                 if (messagingSenderId) fallbackConfig.messagingSenderId = messagingSenderId;
                 if (appId) fallbackConfig.appId = appId;
                 if (measurementId) fallbackConfig.measurementId = measurementId;
+                if (siteKey) fallbackConfig.siteKey = siteKey;
                 return fallbackConfig;
             }
         } catch (e) {
@@ -3768,6 +3850,14 @@
     function getGeminiOrFirebaseEndpoint(selectedModel, action = 'generateContent') {
         const apiKey = localStorage.getItem('pastel_api_gemini') || '';
         const firebaseScript = localStorage.getItem('pastel_api_firebase') || '';
+        const activeProvider = localStorage.getItem('pastel_api_active_provider') || (firebaseScript.trim() && !apiKey.trim() ? 'firebase' : 'gemini');
+
+        if (activeProvider === 'firebase' && firebaseScript.trim()) {
+            const config = parseFirebaseConfig(firebaseScript);
+            if (config && config.projectId && config.apiKey) {
+                return `https://firebasevertexai.googleapis.com/v1beta/projects/${config.projectId}/locations/global/publishers/google/models/${selectedModel}:${action}?key=${config.apiKey}`;
+            }
+        }
 
         if (apiKey.trim()) {
             return `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:${action}?key=${apiKey.trim()}`;
@@ -4180,8 +4270,66 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
     }
 
     /* ==========================================================================
-     * 1. 텍스트 → 로어 변환 엔진 (crack.html 100% 일치)
+     * 1. 텍스트 → 로어 변환 엔진 및 API 통신 자가복구 래퍼 (crack.html 100% 일치)
      * ========================================================================== */
+    async function fetchWithAppCheckRetry(url, body, options = {}) {
+        let appCheckToken = null;
+        if (url.includes('firebasevertexai')) {
+            appCheckToken = await getAppCheckToken();
+        }
+
+        const buildHeaders = (token) => {
+            const h = { "Content-Type": "application/json", ...(options.headers || {}) };
+            if (token && url.includes('firebasevertexai')) {
+                h["X-Firebase-AppCheck"] = token;
+            }
+            return h;
+        };
+
+        const runFetch = async (reqHeaders) => {
+            const abortCtrl = new AbortController();
+            const timeoutMs = options.timeoutMs || 480000;
+            const timer = setTimeout(() => abortCtrl.abort(), timeoutMs);
+            try {
+                return await fetch(url, {
+                    method: "POST",
+                    headers: reqHeaders,
+                    body: JSON.stringify(body),
+                    signal: abortCtrl.signal
+                });
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    throw new Error("AI 응답 시간 초과(8분). 다시 시도해 주십시오.");
+                }
+                throw err;
+            } finally {
+                clearTimeout(timer);
+            }
+        };
+
+        let res = await runFetch(buildHeaders(appCheckToken));
+        if (!res.ok) {
+            const errBody = await res.text();
+            const isAppCheckError = res.status === 401 || res.status === 403 || /appcheck|app[\s_-]*check/i.test(errBody);
+            if (isAppCheckError && url.includes('firebasevertexai')) {
+                console.warn("⚠️ [PASTEL:AppCheck] App Check 토큰 오류 감지 ➔ 7일 토큰 강제 갱신 후 1회 재시도:", errBody.slice(0, 120));
+                try {
+                    const freshToken = await getAppCheckToken(true);
+                    if (freshToken) {
+                        res = await runFetch(buildHeaders(freshToken));
+                    }
+                } catch (rErr) {
+                    console.warn("⚠️ [PASTEL:AppCheck] 토큰 갱신 재시도 예외:", rErr);
+                }
+            }
+            if (!res.ok) {
+                const finalErr = res.text ? await res.text().catch(() => errBody) : errBody;
+                throw new Error(`API 통신 실패 (HTTP ${res.status}): ${finalErr.slice(0, 150)}`);
+            }
+        }
+        return res;
+    }
+
     async function convertTextToStructuredLore(rawText, statusEl) {
         const _extT0 = Date.now();
         const chatId = getChatId();
@@ -4225,38 +4373,7 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
                 safetySettings: getSafetySettingsPayload()
             };
 
-            const appCheckToken = await getAppCheckToken();
-            if (!appCheckToken) {
-                throw new Error("App Check 토큰 획득 실패. 콘솔을 확인해 주십시오.");
-            }
-
-            const headers = { 
-                "Content-Type": "application/json",
-                "X-Firebase-AppCheck": appCheckToken
-            };
-
-            const abortCtrl = new AbortController();
-            const fetchTimeout = setTimeout(() => abortCtrl.abort(), 480000); // 8분(480초) 완벽 무제한급 대기
-
-            let res;
-            try {
-                res = await fetch(url, { 
-                    method: "POST", 
-                    headers: headers, 
-                    body: JSON.stringify(body),
-                    signal: abortCtrl.signal 
-                });
-            } catch (fetchErr) {
-                if (fetchErr.name === 'AbortError') throw new Error("재생성 구간 응답 시간 초과(8분). AI 연산량이 많아 잠시 후 다시 시도해 주십시오.");
-                throw fetchErr;
-            } finally {
-                clearTimeout(fetchTimeout);
-            }
-
-            if (!res.ok) {
-                const errBody = await res.text();
-                throw new Error(`API 통신 실패 (HTTP ${res.status}): ${errBody.slice(0, 150)}`);
-            }
+            const res = await fetchWithAppCheckRetry(url, body);
             const resData = await res.json();
 
             // Gemini API 비용 정밀 누적 연산
@@ -4380,36 +4497,7 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
             safetySettings: getSafetySettingsPayload()
         };
 
-        const appCheckToken = await getAppCheckToken();
-        const headers = { "Content-Type": "application/json" };
-        if (appCheckToken) {
-            headers["X-Firebase-AppCheck"] = appCheckToken;
-        }
-
-        const abortCtrl = new AbortController();
-        const fetchTimeout = setTimeout(() => abortCtrl.abort(), 480000); // 8분(480초) 완벽 무제한급 대기
-
-        let res;
-        try {
-            res = await fetch(url, { 
-                method: "POST", 
-                headers: headers, 
-                body: JSON.stringify(body),
-                signal: abortCtrl.signal
-            });
-        } catch (fetchErr) {
-            if (fetchErr.name === 'AbortError') {
-                throw new Error("AI 응답 시간 초과(8분). 다시 시도해 주십시오.");
-            }
-            throw fetchErr;
-        } finally {
-            clearTimeout(fetchTimeout);
-        }
-
-        if (!res.ok) {
-            const errBody = await res.text();
-            throw new Error(`API 통신 실패 (HTTP ${res.status}): ${errBody.slice(0, 150)}`);
-        }
+        const res = await fetchWithAppCheckRetry(url, body);
         const resData = await res.json();
 
         // Gemini API 비용 정밀 누적 연산
@@ -4497,38 +4585,7 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
             safetySettings: getSafetySettingsPayload()
         };
 
-        const appCheckToken = await getAppCheckToken();
-        if (!appCheckToken) {
-            throw new Error("App Check 토큰 획득 실패. 콘솔을 확인해 주십시오.");
-        }
-
-        const headers = { 
-            "Content-Type": "application/json",
-            "X-Firebase-AppCheck": appCheckToken
-        };
-
-        const abortCtrl = new AbortController();
-        const fetchTimeout = setTimeout(() => abortCtrl.abort(), 480000); // 8분(480초) 완벽 무제한급 대기
-
-        let res;
-        try {
-            res = await fetch(url, { 
-                method: "POST", 
-                headers: headers, 
-                body: JSON.stringify(body),
-                signal: abortCtrl.signal 
-            });
-        } catch (fetchErr) {
-            if (fetchErr.name === 'AbortError') throw new Error("재생성 구간 응답 시간 초과(8분). AI 연산량이 많아 잠시 후 다시 시도해 주십시오.");
-            throw fetchErr;
-        } finally {
-            clearTimeout(fetchTimeout);
-        }
-
-        if (!res.ok) {
-            const errBody = await res.text();
-            throw new Error(`API 통신 실패 (HTTP ${res.status}): ${errBody.slice(0, 150)}`);
-        }
+        const res = await fetchWithAppCheckRetry(url, body);
         const resData = await res.json();
 
         // Gemini API 비용 정밀 누적 연산
@@ -4803,38 +4860,11 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                 const url = getGeminiOrFirebaseEndpoint(selectedModel, 'generateContent');
                 if (!url) throw new Error("우측 서랍의 [API 설정]에 Gemini API Key 또는 Firebase Script를 입력해 주십시오.");
 
-                const appCheckToken = await getAppCheckToken();
-                if (!appCheckToken) {
-                    throw new Error("App Check 토큰 획득 실패. 콘솔을 확인해 주십시오.");
-                }
-
-                const headers = { 
-                    "Content-Type": "application/json",
-                    "X-Firebase-AppCheck": appCheckToken
+                const body = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: { responseMimeType: "application/json" }
                 };
-
-                const abortCtrl = new AbortController();
-                const fetchTimeout = setTimeout(() => abortCtrl.abort(), 480000); // 8분(480초) 완벽 무제한급 대기
-
-                let res;
-                try {
-                    res = await fetch(url, {
-                        method: "POST", 
-                        headers: headers,
-                        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
-                        signal: abortCtrl.signal
-                    });
-                } catch (fetchErr) {
-                    if (fetchErr.name === 'AbortError') throw new Error("병합 요약 응답 시간 초과(8분). AI 연산량이 많아 잠시 후 다시 시도해 주십시오.");
-                    throw fetchErr;
-                } finally {
-                    clearTimeout(fetchTimeout);
-                }
-
-                if (!res.ok) {
-                    const errBody = await res.text();
-                    throw new Error(`AI 병합 통신 실패 (HTTP ${res.status}): ${errBody.slice(0, 150)}`);
-                }
+                const res = await fetchWithAppCheckRetry(url, body);
                 const resData = await res.json();
 
                 // Gemini API 비용 정밀 누적 연산
@@ -5635,57 +5665,66 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         else if (panelId === 'ep-lore-panel-settings') loadCrackLoreSettingsTab();
     }
 
-    // Firebase SDK 및 App Check 초기화 엔진 (reCAPTCHA Enterprise 전용 & 구형 v3 완전 폐기)
+    // Firebase SDK 및 App Check 초기화 엔진 (reCAPTCHA v3 & Enterprise 7일 토큰 보존 및 자가 복구)
     let geminiAppCheckApp = null;
     let cachedAppCheckToken = null;
     let cachedAppCheckExpiry = 0;
-    const RECAPTCHA_SITE_KEY = "6LeGSOctAAAAADaJswGotMksEEfheFfTJe_FhV9X";
+    const DEFAULT_RECAPTCHA_SITE_KEY = "6LeGSOctAAAAADaJswGotMksEEfheFfTJe_FhV9X";
 
-    // 1. 브라우저 최상위 윈도우에 reCAPTCHA Enterprise 스크립트 주입 및 샌드박스 브릿징
-    function ensureRecaptchaLoaded() {
+    function getEffectiveRecaptchaSiteKey() {
+        const firebaseScript = localStorage.getItem('pastel_api_firebase') || '';
+        const parsed = parseFirebaseConfig(firebaseScript);
+        if (parsed && (parsed.siteKey || parsed.recaptchaSiteKey || parsed.recaptchaKey)) {
+            return String(parsed.siteKey || parsed.recaptchaSiteKey || parsed.recaptchaKey).trim();
+        }
+        const match = firebaseScript.match(/(?:siteKey|recaptchaKey|site_key)\s*[:=]\s*['"]([^'"]+)['"]/i)
+                   || firebaseScript.match(/ReCaptcha(?:V3|Enterprise)Provider\s*\(\s*['"]([^'"]+)['"]/i);
+        if (match && match[1]) return match[1].trim();
+
+        const storedKey = localStorage.getItem('pastel_appcheck_site_key');
+        if (storedKey && storedKey.trim()) return storedKey.trim();
+
+        return DEFAULT_RECAPTCHA_SITE_KEY;
+    }
+
+    // 1. reCAPTCHA 스크립트 주입 (v3 및 Enterprise 완벽 지원)
+    function ensureRecaptchaLoaded(siteKey, providerType = 'v3') {
         return new Promise((resolve) => {
             const win = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+            const isEnterprise = providerType === 'enterprise';
 
-            // 구형 v3 스크립트 태그가 남아있다면 즉시 제거
-            const oldV3 = document.getElementById('recaptcha-v3-runtime-script');
-            if (oldV3) oldV3.remove();
-
-            // 이전 키로 주입된 스크립트가 있다면 갱신
-            const existingScript = document.getElementById('recaptcha-enterprise-runtime-script');
-            if (existingScript && !existingScript.src.includes(RECAPTCHA_SITE_KEY)) {
-                existingScript.remove();
-            }
-
-            // 이미 Enterprise SDK가 로드되어 있는 경우 즉시 브릿징
             const hasEnterpriseRecaptcha = (w) => w && w.grecaptcha && (w.grecaptcha.enterprise || typeof w.grecaptcha.ready === 'function' || typeof w.grecaptcha.execute === 'function');
-            if (hasEnterpriseRecaptcha(win)) {
+            const hasV3Recaptcha = (w) => w && w.grecaptcha && (typeof w.grecaptcha.ready === 'function' || typeof w.grecaptcha.execute === 'function');
+            const isLoaded = (w) => isEnterprise ? hasEnterpriseRecaptcha(w) : hasV3Recaptcha(w);
+
+            if (isLoaded(win)) {
                 window.grecaptcha = win.grecaptcha;
-                if (win.grecaptcha.enterprise) {
-                    window.grecaptcha.enterprise = win.grecaptcha.enterprise;
-                }
+                if (win.grecaptcha.enterprise) window.grecaptcha.enterprise = win.grecaptcha.enterprise;
                 return resolve(win.grecaptcha.enterprise || win.grecaptcha);
             }
 
-            // reCAPTCHA Enterprise 전용 스크립트 태그 삽입
-            if (!document.getElementById('recaptcha-enterprise-runtime-script')) {
-                const script = document.createElement('script');
-                script.id = 'recaptcha-enterprise-runtime-script';
-                script.src = `https://www.google.com/recaptcha/enterprise.js?render=${RECAPTCHA_SITE_KEY}`;
+            const scriptId = isEnterprise ? 'recaptcha-enterprise-runtime-script' : 'recaptcha-v3-runtime-script';
+            const scriptSrc = isEnterprise 
+                ? `https://www.google.com/recaptcha/enterprise.js?render=${siteKey}`
+                : `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+
+            let script = document.getElementById(scriptId);
+            if (!script) {
+                script = document.createElement('script');
+                script.id = scriptId;
+                script.src = scriptSrc;
                 script.async = true;
                 (document.head || document.documentElement).appendChild(script);
             }
 
-            // reCAPTCHA Enterprise 엔진이 브라우저에 마운트될 때까지 최대 6초 대기
             let elapsed = 0;
             const timer = setInterval(() => {
                 elapsed += 100;
                 const currentWin = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-                if (hasEnterpriseRecaptcha(currentWin)) {
+                if (isLoaded(currentWin)) {
                     clearInterval(timer);
                     window.grecaptcha = currentWin.grecaptcha;
-                    if (currentWin.grecaptcha.enterprise) {
-                        window.grecaptcha.enterprise = currentWin.grecaptcha.enterprise;
-                    }
+                    if (currentWin.grecaptcha.enterprise) window.grecaptcha.enterprise = currentWin.grecaptcha.enterprise;
                     resolve(currentWin.grecaptcha.enterprise || currentWin.grecaptcha);
                 } else if (elapsed >= 6000) {
                     clearInterval(timer);
@@ -5695,19 +5734,22 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         });
     }
 
-    // 2. App Check 초기화 (구형 v3 배제, ReCaptchaEnterpriseProvider 전용 activate)
-    async function initializeFirebaseDynamically() {
+    // 2. Firebase App Check 초기화
+    async function initializeFirebaseDynamically(forceRefresh = false) {
         const firebaseScript = localStorage.getItem('pastel_api_firebase') || '';
         if (!firebaseScript.trim()) return null;
 
         try {
-            await ensureRecaptchaLoaded();
+            const siteKey = getEffectiveRecaptchaSiteKey();
+            const preferredProvider = localStorage.getItem('pastel_appcheck_provider_type') || 
+                (firebaseScript.includes('ReCaptchaEnterpriseProvider') ? 'enterprise' : 'v3');
+
+            await ensureRecaptchaLoaded(siteKey, preferredProvider);
+
             const win = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             if (win.grecaptcha) {
                 window.grecaptcha = win.grecaptcha;
-                if (win.grecaptcha.enterprise) {
-                    window.grecaptcha.enterprise = win.grecaptcha.enterprise;
-                }
+                if (win.grecaptcha.enterprise) window.grecaptcha.enterprise = win.grecaptcha.enterprise;
             }
 
             const config = parseFirebaseConfig(firebaseScript);
@@ -5721,98 +5763,115 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                 if (geminiAppCheckApp && typeof firebase !== 'undefined' && typeof firebase.appCheck === 'function') {
                     try {
                         const appCheck = firebase.appCheck(geminiAppCheckApp);
-                        // 구형 v3 프로바이더는 완전히 배제하고 ReCaptchaEnterpriseProvider만 사용
-                        const EnterpriseProvider = firebase.appCheck.ReCaptchaEnterpriseProvider;
-                        if (typeof EnterpriseProvider === 'function') {
+                        
+                        if (preferredProvider === 'enterprise' && typeof firebase.appCheck.ReCaptchaEnterpriseProvider === 'function') {
                             appCheck.activate(
-                                new EnterpriseProvider(RECAPTCHA_SITE_KEY),
+                                new firebase.appCheck.ReCaptchaEnterpriseProvider(siteKey),
                                 true
                             );
-                        } else if (firebase.appCheck.ReCaptchaV3Provider) {
-                            // 라이브러리 fallback 안전망
+                        } else if (typeof firebase.appCheck.ReCaptchaV3Provider === 'function') {
                             appCheck.activate(
-                                new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+                                new firebase.appCheck.ReCaptchaV3Provider(siteKey),
+                                true
+                            );
+                        } else if (typeof firebase.appCheck.ReCaptchaEnterpriseProvider === 'function') {
+                            appCheck.activate(
+                                new firebase.appCheck.ReCaptchaEnterpriseProvider(siteKey),
                                 true
                             );
                         }
-                    } catch (_) {}
+                    } catch (actErr) {
+                        console.warn("[AppCheck Activate 경고]:", actErr);
+                    }
                 }
                 return geminiAppCheckApp;
             }
         } catch (e) {
-            console.warn("[Firebase Enterprise 초기화 에러]:", e);
+            console.warn("[Firebase 초기화 에러]:", e);
         }
         return null;
     }
 
-    // 3. 토큰 7일 영구 재사용(localStorage) 발급 및 실시간 콘솔 진단 (Enterprise 단독 규격)
-    async function getAppCheckToken() {
+    function clearCachedAppCheckToken() {
+        cachedAppCheckToken = null;
+        cachedAppCheckExpiry = 0;
+        localStorage.removeItem('pastel_appcheck_token_persistent');
+        localStorage.removeItem('pastel_appcheck_token_expiry');
+        localStorage.removeItem('pastel_appcheck_token_enterprise');
+        localStorage.removeItem('pastel_appcheck_token_expiry_enterprise');
+    }
+
+    // 3. 토큰 7일 영구 보존 & 만료/invalid 시 자동 갱신 엔진
+    async function getAppCheckToken(forceRefresh = false) {
         const now = Date.now();
+        const siteKey = getEffectiveRecaptchaSiteKey();
 
-        // [구형 v3 잔여 캐시 영구 폐기]
-        try {
-            localStorage.removeItem('pastel_appcheck_token_persistent');
-            localStorage.removeItem('pastel_appcheck_token_expiry');
-        } catch (_) {}
-
-        // 사이트 키 변경 감지: 키가 변경되었으면 기존 Enterprise 캐시도 무효화하고 신규 발급
+        // 사이트 키 변경 감지 또는 강제 갱신 요청 시 기존 캐시 즉시 무효화
         const storedKey = localStorage.getItem('pastel_appcheck_site_key');
-        if (storedKey !== RECAPTCHA_SITE_KEY) {
-            localStorage.setItem('pastel_appcheck_site_key', RECAPTCHA_SITE_KEY);
-            localStorage.removeItem('pastel_appcheck_token_enterprise');
-            localStorage.removeItem('pastel_appcheck_token_expiry_enterprise');
-            cachedAppCheckToken = null;
-            cachedAppCheckExpiry = 0;
+        if (storedKey !== siteKey || forceRefresh) {
+            localStorage.setItem('pastel_appcheck_site_key', siteKey);
+            clearCachedAppCheckToken();
         }
 
-        // 1차 메모리 캐시 확인
-        if (cachedAppCheckToken && now < cachedAppCheckExpiry) {
+        // 1차 메모리 캐시 확인 (강제 갱신이 아닌 정상 상태)
+        if (!forceRefresh && cachedAppCheckToken && now < cachedAppCheckExpiry) {
             return cachedAppCheckToken;
         }
 
-        // 2차 로컬 스토리지 확인 (Enterprise 7일 유효기간 검증)
-        const storedToken = localStorage.getItem('pastel_appcheck_token_enterprise');
-        const storedExpiry = parseInt(localStorage.getItem('pastel_appcheck_token_expiry_enterprise') || '0', 10);
+        // 2차 로컬 스토리지 확인 (7일 유효기간 보존)
+        if (!forceRefresh) {
+            const storedToken = localStorage.getItem('pastel_appcheck_token_persistent') || 
+                                localStorage.getItem('pastel_appcheck_token_enterprise');
+            const storedExpiry = parseInt(
+                localStorage.getItem('pastel_appcheck_token_expiry') || 
+                localStorage.getItem('pastel_appcheck_token_expiry_enterprise') || '0', 
+                10
+            );
 
-        // 7일 만료 전까지는 브라우저를 껐다 켜도 reCAPTCHA 호출 없이 0초 만에 즉각 재사용 (무료 할당량 100% 보존)
-        if (storedToken && now < storedExpiry) {
-            cachedAppCheckToken = storedToken;
-            cachedAppCheckExpiry = storedExpiry;
-            return storedToken;
+            // 7일 만료 전까지는 브라우저를 껐다 켜도 0초 만에 즉각 재사용 (무료 할당량 100% 보존)
+            if (storedToken && now < storedExpiry) {
+                cachedAppCheckToken = storedToken;
+                cachedAppCheckExpiry = storedExpiry;
+                return storedToken;
+            }
         }
 
         try {
-            await initializeFirebaseDynamically();
+            await initializeFirebaseDynamically(forceRefresh);
 
             const targetApp = geminiAppCheckApp || (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0 ? firebase.app() : null);
             if (targetApp && typeof firebase !== 'undefined' && firebase.appCheck) {
-                const tokenPromise = firebase.appCheck(targetApp).getToken(false);
+                const tokenPromise = firebase.appCheck(targetApp).getToken(forceRefresh);
                 const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error("AppCheck Enterprise 토큰 발급 시간 초과(8초)")), 8000)
+                    setTimeout(() => reject(new Error("AppCheck 토큰 발급 시간 초과(8초)")), 8000)
                 );
 
                 const tokenResult = await Promise.race([tokenPromise, timeoutPromise]);
                 if (tokenResult && tokenResult.token) {
                     const token = tokenResult.token;
-                    // 7일(7일 = 168시간) 동안 localStorage 및 메모리에 온전히 보존
+                    // 7일(168시간) 동안 localStorage 및 메모리에 온전히 보존
                     const expiry = now + (7 * 24 * 60 * 60 * 1000);
                     cachedAppCheckToken = token;
                     cachedAppCheckExpiry = expiry;
-                    localStorage.setItem('pastel_appcheck_site_key', RECAPTCHA_SITE_KEY);
+                    localStorage.setItem('pastel_appcheck_site_key', siteKey);
+                    localStorage.setItem('pastel_appcheck_token_persistent', token);
+                    localStorage.setItem('pastel_appcheck_token_expiry', String(expiry));
                     localStorage.setItem('pastel_appcheck_token_enterprise', token);
                     localStorage.setItem('pastel_appcheck_token_expiry_enterprise', String(expiry));
-                    console.log("🔑 [PASTEL:AppCheck] Enterprise 7일 토큰 신규 발급 완료:", token.slice(0, 15) + "...");
+                    console.log("🔑 [PASTEL:AppCheck] 7일 토큰 발급/갱신 완료:", token.slice(0, 15) + "...");
                     return token;
                 }
             }
         } catch (e) {
-            console.warn("[AppCheck Enterprise 발급 경고]:", e.message || e);
+            console.warn("[AppCheck 발급 경고]:", e.message || e);
         }
 
-        // 신규 발급이 일시 지연되더라도 유효한 Enterprise 토큰이 남아있다면 폴백 재사용
-        if (storedToken) return storedToken;
+        // 신규 발급 실패 시 기존 저장된 토큰 폴백
+        const fallbackToken = localStorage.getItem('pastel_appcheck_token_persistent') || 
+                              localStorage.getItem('pastel_appcheck_token_enterprise');
+        if (!forceRefresh && fallbackToken) return fallbackToken;
 
-        console.error("❌ [PASTEL:AppCheck] Enterprise 토큰 발급 실패! Firebase 설정 확인 필요");
+        console.error("❌ [PASTEL:AppCheck] 토큰 발급 실패! Firebase 설정 확인 필요");
         return null;
     }
 
@@ -5911,7 +5970,22 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         }
     }
 
+    function syncHeaderPositions() {
+        const topHeader = document.querySelector('header') || document.querySelector('div[class*="group/lnb-header"]');
+        const subHeader = document.querySelector('.absolute.z-docked.left-0.w-full.h-12') || document.querySelector('div.h-12.px-5.flex.justify-between.items-center')?.parentElement;
+        
+        if (topHeader) {
+            const h = Math.round(topHeader.getBoundingClientRect().height) || 56;
+            document.documentElement.style.setProperty('--crack-top-header-height', `${h}px`);
+            if (subHeader) {
+                subHeader.style.setProperty('top', `${h}px`, 'important');
+                subHeader.style.setProperty('margin-top', '0px', 'important');
+            }
+        }
+    }
+
     function checkAndInject() {
+        syncHeaderPositions();
         injectBaseDOM();
         stripLoreOnlyFromView();
         monitorSendButtonState();
@@ -5925,6 +5999,9 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
             fetchCrackCash();
         }
     }
+
+    window.addEventListener('resize', syncHeaderPositions, { passive: true });
+    window.addEventListener('scroll', syncHeaderPositions, { passive: true });
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', checkAndInject);
