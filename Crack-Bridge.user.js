@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PASTELchat × CRACK Native Bridge Engine
 // @namespace    https://pastelchat.com/
-// @version      2.5.5
+// @version      2.5.6
 // @description  PASTELchat Native UI Engine & Data Bridge for crack.wrtn.ai
 // @author       PASTELchat
 // @match        https://crack.wrtn.ai/*
@@ -1332,42 +1332,95 @@
         }
     }
 
-    // 클릭 가능 플로팅 알림 토스트 (클릭 시 콜백 실행 및 창 닫힘)
-    function showClickableToast(msg, onClick = null, persistent = false) {
+    // [파스텔챗 순정] 로어 생성 알림 전용 플로팅 토스트 (상시 지속 / 짧은 클릭: 로어 생성 / 길게 누름: 로어 저장소 진입)
+    let activeLoreNotificationToast = null;
+
+    function showLoreAlertFloatingToast(chatId, extTurns) {
+        if (activeLoreNotificationToast) return; // 이미 떠있으면 중복 노출 차단
+
         let container = document.getElementById('pastel-toast-container');
         if (!container) {
             container = document.createElement('div');
             container.id = 'pastel-toast-container';
             document.body.appendChild(container);
         }
+
         const item = document.createElement('div');
         item.className = 'ep-toast-item';
-        item.style.cssText = 'pointer-events: auto !important; cursor: pointer;';
-        item.innerHTML = `<div class="ep-toast-container"><p class="ep-toast-text">${msg}</p></div>`;
+        item.style.cssText = 'pointer-events: auto !important; cursor: pointer; user-select: none;';
+        item.innerHTML = `<div class="ep-toast-container"><p class="ep-toast-text" id="ep-lore-alert-text">🔮 로어를 업데이트 해주세요</p></div>`;
 
-        let timer = null;
-        const remove = () => {
-            if (timer) clearTimeout(timer);
-            item.classList.remove('visible');
-            setTimeout(() => {
-                if (container && container.contains(item)) item.remove();
-            }, 200);
+        let isLongPress = false;
+        let pressTimer = null;
+
+        const startPress = () => {
+            isLongPress = false;
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                // [롱프레스] 길게 누르면 로어 저장소 모달 열기!
+                closeToast();
+                const loreModal = document.getElementById('ep-lore-storage-modal-overlay');
+                if (loreModal) {
+                    loadCrackLoreSettingsTab();
+                    switchCrackLoreTab('ep-lore-tab-active', 'ep-lore-panel-active');
+                    loreModal.style.display = 'flex';
+                }
+            }, 700);
         };
 
-        if (onClick) {
-            item.onclick = (e) => {
-                e.stopPropagation();
-                remove();
-                onClick();
-            };
-        }
+        const cancelPress = () => {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+        };
 
+        const closeToast = () => {
+            cancelPress();
+            if (activeLoreNotificationToast) {
+                const target = activeLoreNotificationToast;
+                activeLoreNotificationToast = null;
+                target.classList.remove('visible');
+                setTimeout(() => { if (container && container.contains(target)) target.remove(); }, 200);
+            }
+        };
+
+        // 롱프레스 이벤트 바인딩
+        item.addEventListener('mousedown', startPress);
+        item.addEventListener('mouseup', cancelPress);
+        item.addEventListener('mouseleave', cancelPress);
+        item.addEventListener('touchstart', startPress, { passive: true });
+        item.addEventListener('touchend', cancelPress);
+        item.addEventListener('touchcancel', cancelPress);
+
+        // [짧게 클릭] 즉시 로어 생성 실행 및 토스트 상태 변경
+        item.onclick = async (e) => {
+            e.stopPropagation();
+            if (isLongPress) {
+                isLongPress = false;
+                return;
+            }
+
+            const textEl = item.querySelector('#ep-lore-alert-text');
+            if (textEl) textEl.textContent = `🔮 최근 ${extTurns}턴 로어 생성 중...`;
+            item.style.pointerEvents = 'none';
+
+            try {
+                await executeManualLoreExtraction(chatId, extTurns);
+                const curTurn = getCrackChatTurns(chatId);
+                localStorage.setItem(`pastel_crack_last_manual_ext_turn_${chatId}`, String(curTurn));
+                if (textEl) textEl.textContent = "✨ 로어 생성 완료!";
+                renderCrackActiveLores();
+            } catch (err) {
+                if (textEl) textEl.textContent = "❌ 로어 생성 실패";
+            } finally {
+                setTimeout(closeToast, 2000);
+            }
+        };
+
+        activeLoreNotificationToast = item;
         container.appendChild(item);
         setTimeout(() => item.classList.add('visible'), 20);
-
-        if (!persistent) {
-            timer = setTimeout(remove, 3000);
-        }
     }
 
     /* ==========================================================================
@@ -4319,7 +4372,7 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
 
         const customInst = localStorage.getItem(`pastel_crack_lore_auto_ext_instruction_ep_${episodeId}`) || '';
         const userMaxChars = parseInt(localStorage.getItem(`pastel_crack_lore_merge_maxchars_ep_${episodeId}`), 10) || 700;
-        const finalPrompt = getSharedLoreArchivistPrompt(contextText, entriesText, customInst, 'Conversation Log', userMaxChars);
+        const finalPrompt = getSharedLoreArchivistPrompt(context, entriesText, customInst, 'Conversation Log', userMaxChars);
 
         const body = {
             contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
@@ -4388,6 +4441,8 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
             for (const e of parsedArray) {
                 await mergeAndSaveLoreEntry(e, packName, episodeId);
             }
+            localStorage.setItem(`pastel_crack_last_manual_ext_turn_${episodeId}`, String(currentTurn));
+            if (activeLoreNotificationToast) activeLoreNotificationToast.remove();
             recordExtractLog(episodeId, currentTurn, parsedArray.length, targetList.length, 'success', selectedModel, Date.now() - _manT0);
             renderCrackActiveLores();
             return parsedArray.length;
@@ -5839,30 +5894,17 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                 fetchCrackCash();
             }, 800); // 크랙 서버 DB 차감 지연 대비 2차 확정 갱신
 
-            // AI 답변 완결 시점: 지정 '로어 생성 주기' 도달 시 로어 업데이트 플로팅 알림 토스트 노출
+            // AI 답변 완결 시점: 설정된 주기(extTurns)만큼 턴수가 경과했는지 실시간 검사
             const targetChatId = getChatId();
             if (targetChatId && targetChatId !== 'global') {
                 setTimeout(async () => {
                     const extTurns = parseInt(localStorage.getItem(`pastel_crack_lore_auto_ext_turns_ep_${targetChatId}`), 10) || 6;
                     const currentTurns = await getCrackUserTurnsRealtime(targetChatId);
-                    const lastNotifiedKey = `pastel_crack_last_notified_turn_${targetChatId}`;
-                    const lastNotifiedTurn = parseInt(localStorage.getItem(lastNotifiedKey) || '-1', 10);
+                    const lastExtTurn = parseInt(localStorage.getItem(`pastel_crack_last_manual_ext_turn_${targetChatId}`) || '0', 10);
 
-                    if (currentTurns > 0 && currentTurns % extTurns === 0 && currentTurns !== lastNotifiedTurn) {
-                        localStorage.setItem(lastNotifiedKey, String(currentTurns));
-
-                        showClickableToast("🔮 로어를 업데이트 해주세요", async () => {
-                            try {
-                                showLoreExtPersistentToast(`🔮 최근 ${extTurns}턴 로어 생성 중...`);
-                                await executeManualLoreExtraction(targetChatId, extTurns);
-                                showToast("✨ 로어 생성 완료!");
-                                renderCrackActiveLores();
-                            } catch (err) {
-                                showToast("❌ 로어 생성 실패");
-                            } finally {
-                                hideLoreExtPersistentToast();
-                            }
-                        }, true);
+                    // 마지막 생성 이후로 설정된 주기만큼 대화가 누적되었다면 지속 알림 노출!
+                    if (currentTurns > 0 && (currentTurns - lastExtTurn) >= extTurns) {
+                        showLoreAlertFloatingToast(targetChatId, extTurns);
                     }
                 }, 500);
             }
