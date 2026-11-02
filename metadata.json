@@ -1,0 +1,5 @@
+{
+  "name": "PASTELchat × CRACK Native Bridge",
+  "description": "PASTELchat × CRACK Native Bridge Engine Userscript & Live Test Suite",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

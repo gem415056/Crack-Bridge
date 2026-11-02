@@ -112,14 +112,15 @@
             z-index: -99999 !important;
         }
 
-       /* 1. 최상단 메인 헤더 영구 고정 (부모 컨테이너만 고정하여 자식 그리드 왜곡 방지) */
+        /* 1. 최상단 메인 헤더 영구 고정 */
         header,
+        .relative.h-full.px-3.grid.grid-cols-3.items-center,
         div[class*="group/lnb-header"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            height: var(--crack-top-header-height, 56px) !important;
+            height: 56px !important;
             transform: none !important;
             opacity: 1 !important;
             visibility: visible !important;
@@ -128,51 +129,50 @@
             box-sizing: border-box !important;
         }
 
-        .relative.h-full.px-3.grid.grid-cols-3.items-center {
-            height: 100% !important;
-            display: grid !important;
-            align-items: center !important;
-            box-sizing: border-box !important;
-        }
-
-        /* 1-1. 대화방 서브 헤더 화면 상단 영구 고정 (메인 헤더 바로 아래 0px 간격 밀착) */
-        .absolute.z-docked.left-0.w-full.h-12 {
+        /* 1-1. 대화방 서브 헤더 화면 상단 영구 고정 (상단 잘림 방지 수직 중앙 정렬) */
+        .absolute.z-docked.left-0.w-full.h-12,
+        div.h-12.px-5.flex.justify-between.items-center,
+        div:has(> button > span.line-clamp-1) {
             position: fixed !important;
-            top: var(--crack-top-header-height, 56px) !important;
+            top: 56px !important;
             left: 0 !important;
             right: 0 !important;
             height: 48px !important;
-            margin: 0 !important;
-            padding: 0 !important;
             transform: none !important;
             opacity: 1 !important;
             visibility: visible !important;
+            display: flex !important;
+            align-items: center !important;
             z-index: 100060 !important;
             background-color: var(--bg_screen, #ffffff) !important;
             box-sizing: border-box !important;
         }
 
-        div.h-12.px-5.flex.justify-between.items-center {
-            height: 48px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            box-sizing: border-box !important;
-            width: 100% !important;
-            margin: 0 !important;
-        }
-
-        div:has(> button > span.line-clamp-1) {
-            display: flex !important;
-            align-items: center !important;
-            height: 100% !important;
-            position: static !important;
-            margin: 0 !important;
-        }
-
-        /* 첫 메시지 가림 방지 상단 패딩 (헤더 총합 높이만큼 정확하게 보정) */
+        /* 첫 메시지 가림 방지 상단 패딩 (헤더 총합 높이 보정) */
         main.relative.h-full.min-w-0.flex-1 {
-            padding-top: calc(var(--crack-top-header-height, 56px) + 48px) !important;
+            padding-top: 104px !important;
+        }
+        .stick-to-bottom {
+            padding-top: 0 !important;
+        }
+
+        /* 모바일 브라우저 대응: 상단 헤더 48px 및 서브헤더 48px 밀착 (0px 간격으로 빈공간 원천 제거) */
+        @media (max-width: 768px) {
+            header,
+            .relative.h-full.px-3.grid.grid-cols-3.items-center,
+            div[class*="group/lnb-header"] {
+                height: 48px !important;
+            }
+
+            .absolute.z-docked.left-0.w-full.h-12,
+            div.h-12.px-5.flex.justify-between.items-center,
+            div:has(> button > span.line-clamp-1) {
+                top: 48px !important;
+            }
+
+            main.relative.h-full.min-w-0.flex-1 {
+                padding-top: 96px !important;
+            }
         }
         .stick-to-bottom {
             padding-top: 0 !important;
@@ -200,7 +200,8 @@
         body[data-theme="dark"] header,
         body[data-theme="dark"] .relative.h-full.px-3.grid.grid-cols-3.items-center,
         body[data-theme="dark"] .absolute.z-docked.left-0.w-full.h-12,
-        body[data-theme="dark"] div.h-12.px-5.flex.justify-between.items-center {
+        body[data-theme="dark"] div.h-12.px-5.flex.justify-between.items-center,
+        body[data-theme="dark"] div:has(> button > span.line-clamp-1) {
             background-color: #141413 !important;
         }
         /* 2. 크랙 순정 가변 패딩 및 대화 스크롤 유령 공백 완전 초기화 */
@@ -1715,12 +1716,12 @@
                                 <input type="text" class="api-textbox" id="ep-api-key-input">
                                 <textarea class="api-textbox" id="ep-api-firebase-textarea" style="display: none; height: 160px; resize: none;" placeholder="Firebase SDK 초기화 스크립트 붙여넣기..."></textarea>
                                 <div id="ep-api-firebase-extra" style="display: none; margin-top: 8px;">
-                                    <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between;">
-                                        <select class="model-select-dropdown" id="ep-appcheck-provider-select" style="flex: 1; font-size: 11px; height: 28px;">
-                                            <option value="v3">reCAPTCHA v3 (표준 7일)</option>
-                                            <option value="enterprise">reCAPTCHA Enterprise</option>
-                                        </select>
-                                        <button type="button" id="ep-appcheck-refresh-btn" class="decentral-button" style="width: auto; height: 28px; padding: 0 10px; font-size: 11px; white-space: nowrap; cursor: pointer; border-radius: 4px; border: 1px solid #88b9c8; color: #88b9c8 !important; background: transparent !important;">토큰 갱신</button>
+                                    <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 6px; border: 1px solid var(--decentral-text-border); border-radius: 6px; background: var(--decentral-switch-background);">
+                                        <div style="flex: 1; font-size: 11px; color: var(--decentral-text); display: flex; align-items: center; gap: 6px;">
+                                            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4caf50;"></span>
+                                            <span>reCAPTCHA Enterprise (7일 토큰 보존)</span>
+                                        </div>
+                                        <button type="button" id="ep-appcheck-refresh-btn" class="decentral-button" style="width: auto; height: 26px; padding: 0 10px; font-size: 11px; white-space: nowrap; cursor: pointer; border-radius: 4px; border: 1px solid #88b9c8; color: #88b9c8 !important; background: transparent !important;">토큰 갱신</button>
                                     </div>
                                 </div>
                             </div>
@@ -3297,17 +3298,7 @@
         }
 
         const apiFbExtra = document.getElementById('ep-api-firebase-extra');
-        const appcheckProviderSel = document.getElementById('ep-appcheck-provider-select');
         const appcheckRefreshBtn = document.getElementById('ep-appcheck-refresh-btn');
-
-        if (appcheckProviderSel) {
-            appcheckProviderSel.value = localStorage.getItem('pastel_appcheck_provider_type') || 'v3';
-            appcheckProviderSel.onchange = (e) => {
-                localStorage.setItem('pastel_appcheck_provider_type', e.target.value);
-                // 프로바이더 변경 시 캐시 무효화 및 강제 재발급 준비
-                getAppCheckToken(true).catch(() => {});
-            };
-        }
 
         if (appcheckRefreshBtn) {
             appcheckRefreshBtn.onclick = async () => {
@@ -3316,7 +3307,7 @@
                 try {
                     const token = await getAppCheckToken(true);
                     if (token) {
-                        showToast("✨ App Check 7일 토큰 갱신 성공!");
+                        showToast("✨ App Check Enterprise 7일 토큰 갱신 성공!");
                     } else {
                         showToast("⚠ 토큰 갱신 실패. Firebase 설정을 확인하세요.");
                     }
@@ -5687,26 +5678,21 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         return DEFAULT_RECAPTCHA_SITE_KEY;
     }
 
-    // 1. reCAPTCHA 스크립트 주입 (v3 및 Enterprise 완벽 지원)
-    function ensureRecaptchaLoaded(siteKey, providerType = 'v3') {
+    // 1. reCAPTCHA Enterprise 전용 스크립트 주입 (7일 토큰 보존)
+    function ensureRecaptchaLoaded(siteKey) {
         return new Promise((resolve) => {
             const win = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-            const isEnterprise = providerType === 'enterprise';
 
             const hasEnterpriseRecaptcha = (w) => w && w.grecaptcha && (w.grecaptcha.enterprise || typeof w.grecaptcha.ready === 'function' || typeof w.grecaptcha.execute === 'function');
-            const hasV3Recaptcha = (w) => w && w.grecaptcha && (typeof w.grecaptcha.ready === 'function' || typeof w.grecaptcha.execute === 'function');
-            const isLoaded = (w) => isEnterprise ? hasEnterpriseRecaptcha(w) : hasV3Recaptcha(w);
 
-            if (isLoaded(win)) {
+            if (hasEnterpriseRecaptcha(win)) {
                 window.grecaptcha = win.grecaptcha;
                 if (win.grecaptcha.enterprise) window.grecaptcha.enterprise = win.grecaptcha.enterprise;
                 return resolve(win.grecaptcha.enterprise || win.grecaptcha);
             }
 
-            const scriptId = isEnterprise ? 'recaptcha-enterprise-runtime-script' : 'recaptcha-v3-runtime-script';
-            const scriptSrc = isEnterprise 
-                ? `https://www.google.com/recaptcha/enterprise.js?render=${siteKey}`
-                : `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+            const scriptId = 'recaptcha-enterprise-runtime-script';
+            const scriptSrc = `https://www.google.com/recaptcha/enterprise.js?render=${siteKey}`;
 
             let script = document.getElementById(scriptId);
             if (!script) {
@@ -5721,7 +5707,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
             const timer = setInterval(() => {
                 elapsed += 100;
                 const currentWin = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-                if (isLoaded(currentWin)) {
+                if (hasEnterpriseRecaptcha(currentWin)) {
                     clearInterval(timer);
                     window.grecaptcha = currentWin.grecaptcha;
                     if (currentWin.grecaptcha.enterprise) window.grecaptcha.enterprise = currentWin.grecaptcha.enterprise;
@@ -5734,17 +5720,14 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         });
     }
 
-    // 2. Firebase App Check 초기화
+    // 2. Firebase App Check (reCAPTCHA Enterprise 전용) 초기화
     async function initializeFirebaseDynamically(forceRefresh = false) {
         const firebaseScript = localStorage.getItem('pastel_api_firebase') || '';
         if (!firebaseScript.trim()) return null;
 
         try {
             const siteKey = getEffectiveRecaptchaSiteKey();
-            const preferredProvider = localStorage.getItem('pastel_appcheck_provider_type') || 
-                (firebaseScript.includes('ReCaptchaEnterpriseProvider') ? 'enterprise' : 'v3');
-
-            await ensureRecaptchaLoaded(siteKey, preferredProvider);
+            await ensureRecaptchaLoaded(siteKey);
 
             const win = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             if (win.grecaptcha) {
@@ -5763,8 +5746,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                 if (geminiAppCheckApp && typeof firebase !== 'undefined' && typeof firebase.appCheck === 'function') {
                     try {
                         const appCheck = firebase.appCheck(geminiAppCheckApp);
-                        
-                        if (preferredProvider === 'enterprise' && typeof firebase.appCheck.ReCaptchaEnterpriseProvider === 'function') {
+                        if (typeof firebase.appCheck.ReCaptchaEnterpriseProvider === 'function') {
                             appCheck.activate(
                                 new firebase.appCheck.ReCaptchaEnterpriseProvider(siteKey),
                                 true
@@ -5772,11 +5754,6 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
                         } else if (typeof firebase.appCheck.ReCaptchaV3Provider === 'function') {
                             appCheck.activate(
                                 new firebase.appCheck.ReCaptchaV3Provider(siteKey),
-                                true
-                            );
-                        } else if (typeof firebase.appCheck.ReCaptchaEnterpriseProvider === 'function') {
-                            appCheck.activate(
-                                new firebase.appCheck.ReCaptchaEnterpriseProvider(siteKey),
                                 true
                             );
                         }
@@ -5970,22 +5947,7 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
         }
     }
 
-    function syncHeaderPositions() {
-        const topHeader = document.querySelector('header') || document.querySelector('div[class*="group/lnb-header"]');
-        const subHeader = document.querySelector('.absolute.z-docked.left-0.w-full.h-12') || document.querySelector('div.h-12.px-5.flex.justify-between.items-center')?.parentElement;
-        
-        if (topHeader) {
-            const h = Math.round(topHeader.getBoundingClientRect().height) || 56;
-            document.documentElement.style.setProperty('--crack-top-header-height', `${h}px`);
-            if (subHeader) {
-                subHeader.style.setProperty('top', `${h}px`, 'important');
-                subHeader.style.setProperty('margin-top', '0px', 'important');
-            }
-        }
-    }
-
     function checkAndInject() {
-        syncHeaderPositions();
         injectBaseDOM();
         stripLoreOnlyFromView();
         monitorSendButtonState();
@@ -5999,9 +5961,6 @@ ${JSON.stringify(cleanList, null, 2)}${customBlock}`;
             fetchCrackCash();
         }
     }
-
-    window.addEventListener('resize', syncHeaderPositions, { passive: true });
-    window.addEventListener('scroll', syncHeaderPositions, { passive: true });
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', checkAndInject);
