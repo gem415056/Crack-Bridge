@@ -1744,7 +1744,7 @@
                             <div class="model-input-group">
                                 <label>로어 생성 모델</label>
                                 <select class="model-select-dropdown" id="ep-lore-extract-model-select">
-                                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                                    <option value="gemini-4-hydrogen">Gemini 4 Hydrogen</option>
                                     <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                                     <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash</option>
                                     <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
@@ -1754,7 +1754,7 @@
 
                                 <label>중요 장면 판단 모델</label>
                                 <select class="model-select-dropdown" id="ep-lore-judge-model-select">
-                                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                                    <option value="gemini-4-hydrogen">Gemini 4 Hydrogen</option>
                                     <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                                     <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
                                     <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash Lite</option>
@@ -2192,6 +2192,10 @@
         const outTok = outTokens || 0;
         const m = String(modelName || '').toLowerCase().trim();
 
+        // 0) Gemini 4 Hydrogen (In $1.50 / Out $7.50 per 1M)
+        if (m.includes('hydrogen') || m.includes('4-hydrogen')) {
+            return (inTok * (1.50 / 1000000)) + (outTok * (7.50 / 1000000));
+        }
         // 1) Gemini 3.1 Pro Preview (<= 200k 토큰: In $2.00 / Out $12.00 per 1M)
         if (m.includes('3.1-pro') || m.includes('pro')) {
             return (inTok * (2.00 / 1000000)) + (outTok * (12.00 / 1000000));
