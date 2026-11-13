@@ -1764,21 +1764,18 @@
 
                                 <label>로어 생성 생각 깊이 (Reasoning)</label>
                                 <select class="model-select-dropdown" id="ep-lore-reasoning-select">
-                                    <option value="off">Off (비활성)</option>
-                                    <option value="minimal">Minimal (기본 256)</option>
-                                    <option value="low">Low (1024)</option>
-                                    <option value="medium" selected>Medium (2048)</option>
-                                    <option value="high">High (4096)</option>
-                                    <option value="budget">Budget (직접 예산 입력)</option>
+                                    <option value="LOW">LOW</option>
+                                    <option value="MEDIUM">MEDIUM</option>
+                                    <option value="HIGH" selected>HIGH</option>
+                                    <option value="XHIGH">XHIGH</option>
                                 </select>
-                                <input type="number" class="api-textbox ep-model-custom-input" id="ep-lore-reasoning-budget-input" placeholder="토큰 예산 직접 입력" style="display: none;" min="1" max="1000000">
 
                                 <label>중요 장면 판단 생각 깊이</label>
                                 <select class="model-select-dropdown" id="ep-lore-judge-reasoning-select">
-                                    <option value="minimal" selected>Minimal (권장)</option>
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
+                                    <option value="LOW" selected>LOW</option>
+                                    <option value="MEDIUM">MEDIUM</option>
+                                    <option value="HIGH">HIGH</option>
+                                    <option value="XHIGH">XHIGH</option>
                                 </select>
                             </div>
                         </div>
@@ -3402,19 +3399,54 @@
             ['pastel_crack_lore_extract_custom', 'ep-lore-extract-custom-input', ''],
             ['pastel_crack_lore_judge_model', 'ep-lore-judge-model-select', 'gemini-3.5-flash-lite'],
             ['pastel_crack_lore_judge_custom', 'ep-lore-judge-custom-input', ''],
-            ['pastel_crack_lore_reasoning', 'ep-lore-reasoning-select', 'medium'],
-            ['pastel_crack_lore_reasoning_budget', 'ep-lore-reasoning-budget-input', '2048'],
-            ['pastel_crack_lore_judge_reasoning', 'ep-lore-judge-reasoning-select', 'minimal'],
+            ['pastel_crack_lore_reasoning', 'ep-lore-reasoning-select', 'HIGH'],
+            ['pastel_crack_lore_judge_reasoning', 'ep-lore-judge-reasoning-select', 'LOW'],
             ['pastel_crack_safety_harassment', 'ep-safety-harassment-select', 'BLOCK_NONE'],
             ['pastel_crack_safety_hate', 'ep-safety-hate-select', 'BLOCK_NONE'],
             ['pastel_crack_safety_explicit', 'ep-safety-explicit-select', 'BLOCK_NONE'],
             ['pastel_crack_safety_dangerous', 'ep-safety-dangerous-select', 'BLOCK_NONE']
         ];
 
+        const syncReasoningDropdown = (modelSel, customInp, modelKey, customKey, rsnSel, rsnKey, defaultLevel) => {
+            if (!rsnSel) return;
+            let activeModel = modelSel ? modelSel.value : (localStorage.getItem(modelKey) || '');
+            if (activeModel === '_custom') {
+                activeModel = (customInp ? customInp.value : localStorage.getItem(customKey)) || '';
+            }
+            const isGen4 = String(activeModel || '').toLowerCase().includes('gemini-4');
+
+            let xhighOpt = rsnSel.querySelector('option[value="XHIGH"]');
+            if (isGen4) {
+                if (!xhighOpt) {
+                    xhighOpt = document.createElement('option');
+                    xhighOpt.value = 'XHIGH';
+                    xhighOpt.textContent = 'XHIGH';
+                    rsnSel.appendChild(xhighOpt);
+                }
+            } else if (xhighOpt) {
+                xhighOpt.remove();
+            }
+
+            const rawSaved = localStorage.getItem(rsnKey);
+            let normalized = String(rawSaved || defaultLevel).toUpperCase().trim();
+            if (!['LOW', 'MEDIUM', 'HIGH', 'XHIGH'].includes(normalized)) {
+                normalized = defaultLevel;
+            }
+            if (!isGen4 && normalized === 'XHIGH') {
+                normalized = 'HIGH';
+            }
+            if (rawSaved !== null && rawSaved !== normalized) {
+                localStorage.setItem(rsnKey, normalized);
+            }
+            rsnSel.value = normalized;
+        };
+
         const syncModelInputs = () => {
             modelSettingsMap.forEach(([k, id, def]) => {
                 const el = document.getElementById(id);
-                if (el) el.value = localStorage.getItem(k) || def;
+                if (el && el !== document.activeElement) {
+                    el.value = localStorage.getItem(k) || def;
+                }
             });
             const extSel = document.getElementById('ep-lore-extract-model-select');
             const extInp = document.getElementById('ep-lore-extract-custom-input');
@@ -3425,8 +3457,10 @@
             if (jdgSel && jdgInp) jdgInp.style.display = jdgSel.value === '_custom' ? 'block' : 'none';
 
             const rsnSel = document.getElementById('ep-lore-reasoning-select');
-            const rsnInp = document.getElementById('ep-lore-reasoning-budget-input');
-            if (rsnSel && rsnInp) rsnInp.style.display = rsnSel.value === 'budget' ? 'block' : 'none';
+            syncReasoningDropdown(extSel, extInp, 'pastel_crack_lore_extract_model', 'pastel_crack_lore_extract_custom', rsnSel, 'pastel_crack_lore_reasoning', 'HIGH');
+
+            const jdgRsnSel = document.getElementById('ep-lore-judge-reasoning-select');
+            syncReasoningDropdown(jdgSel, jdgInp, 'pastel_crack_lore_judge_model', 'pastel_crack_lore_judge_custom', jdgRsnSel, 'pastel_crack_lore_judge_reasoning', 'LOW');
         };
 
         syncModelInputs();
@@ -3438,7 +3472,12 @@
                     localStorage.setItem(k, el.value);
                     syncModelInputs();
                 };
-                el.oninput = () => localStorage.setItem(k, el.value);
+                el.oninput = () => {
+                    localStorage.setItem(k, el.value);
+                    if (id === 'ep-lore-extract-custom-input' || id === 'ep-lore-judge-custom-input') {
+                        syncModelInputs();
+                    }
+                };
             }
         });
 
@@ -4331,13 +4370,15 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         let selectedModel = localStorage.getItem('pastel_crack_lore_extract_model') || 'gemini-3.6-flash';
         if (selectedModel === '_custom') selectedModel = localStorage.getItem('pastel_crack_lore_extract_custom') || 'gemini-3.6-flash';
 
-        const reasoningValue = localStorage.getItem('pastel_crack_lore_reasoning') || 'medium';
+        const modelLower = String(selectedModel || '').toLowerCase();
+        const isGen4 = modelLower.includes('gemini-4');
+        const isGen3OrThinking = modelLower.includes('gemini-3') || modelLower.includes('gemini-2.0-flash-thinking');
         const thinkingConfig = {};
-        if (selectedModel.includes('gemini-3') || selectedModel.includes('gemini-2.0-flash-thinking')) {
-            if (reasoningValue !== 'off') {
-                if (reasoningValue === 'budget') thinkingConfig.thinkingBudget = parseInt(localStorage.getItem('pastel_crack_lore_reasoning_budget')) || 2048;
-                else thinkingConfig.thinkingLevel = reasoningValue;
-            }
+        if (isGen4 || isGen3OrThinking) {
+            let level = String(localStorage.getItem('pastel_crack_lore_reasoning') || 'HIGH').toUpperCase().trim();
+            if (!['LOW', 'MEDIUM', 'HIGH', 'XHIGH'].includes(level)) level = 'HIGH';
+            if (!isGen4 && level === 'XHIGH') level = 'HIGH';
+            thinkingConfig.thinkingLevel = level;
         }
 
         const url = getGeminiOrFirebaseEndpoint(selectedModel, 'generateContent');
@@ -4444,13 +4485,15 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         let selectedModel = localStorage.getItem('pastel_crack_lore_extract_model') || 'gemini-3.6-flash';
         if (selectedModel === '_custom') selectedModel = localStorage.getItem('pastel_crack_lore_extract_custom') || 'gemini-3.6-flash';
 
-        const reasoningValue = localStorage.getItem('pastel_crack_lore_reasoning') || 'medium';
+        const modelLower = String(selectedModel || '').toLowerCase();
+        const isGen4 = modelLower.includes('gemini-4');
+        const isGen3OrThinking = modelLower.includes('gemini-3') || modelLower.includes('gemini-2.0-flash-thinking');
         const thinkingConfig = {};
-        if (selectedModel.includes('gemini-3') || selectedModel.includes('gemini-2.0-flash-thinking')) {
-            if (reasoningValue !== 'off') {
-                if (reasoningValue === 'budget') thinkingConfig.thinkingBudget = parseInt(localStorage.getItem('pastel_crack_lore_reasoning_budget')) || 2048;
-                else thinkingConfig.thinkingLevel = reasoningValue;
-            }
+        if (isGen4 || isGen3OrThinking) {
+            let level = String(localStorage.getItem('pastel_crack_lore_reasoning') || 'HIGH').toUpperCase().trim();
+            if (!['LOW', 'MEDIUM', 'HIGH', 'XHIGH'].includes(level)) level = 'HIGH';
+            if (!isGen4 && level === 'XHIGH') level = 'HIGH';
+            thinkingConfig.thinkingLevel = level;
         }
 
         const url = getGeminiOrFirebaseEndpoint(selectedModel, 'generateContent');
@@ -4543,13 +4586,15 @@ async function mergeAndSaveLoreEntry(e, packName, chatId) {
         let selectedModel = localStorage.getItem('pastel_crack_lore_extract_model') || 'gemini-3.6-flash';
         if (selectedModel === '_custom') selectedModel = localStorage.getItem('pastel_crack_lore_extract_custom') || 'gemini-3.6-flash';
 
-        const reasoningValue = localStorage.getItem('pastel_crack_lore_reasoning') || 'medium';
+        const modelLower = String(selectedModel || '').toLowerCase();
+        const isGen4 = modelLower.includes('gemini-4');
+        const isGen3OrThinking = modelLower.includes('gemini-3') || modelLower.includes('gemini-2.0-flash-thinking');
         const thinkingConfig = {};
-        if (selectedModel.includes('gemini-3') || selectedModel.includes('gemini-2.0-flash-thinking')) {
-            if (reasoningValue !== 'off') {
-                if (reasoningValue === 'budget') thinkingConfig.thinkingBudget = parseInt(localStorage.getItem('pastel_crack_lore_reasoning_budget')) || 2048;
-                else thinkingConfig.thinkingLevel = reasoningValue;
-            }
+        if (isGen4 || isGen3OrThinking) {
+            let level = String(localStorage.getItem('pastel_crack_lore_reasoning') || 'HIGH').toUpperCase().trim();
+            if (!['LOW', 'MEDIUM', 'HIGH', 'XHIGH'].includes(level)) level = 'HIGH';
+            if (!isGen4 && level === 'XHIGH') level = 'HIGH';
+            thinkingConfig.thinkingLevel = level;
         }
 
         const url = getGeminiOrFirebaseEndpoint(selectedModel, 'generateContent');
